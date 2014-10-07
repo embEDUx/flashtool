@@ -12,6 +12,8 @@ This configuration affects kernel, flatten-device-tree files and u-boot.
    - ARMrider
 
  - Raspberry Pi
+
+ - Quemu-arm
  
  - Beaglebone (in process)
 
