@@ -31,5 +31,9 @@ setup(
     install_requires=[
         'colorama'
     ],
-
+    classifiers=[
+      'Environment :: Console',
+      'Programming Language :: Python :: 2',
+      'Topic :: Utilities',
+    ],
 )
