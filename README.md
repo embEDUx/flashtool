@@ -1,6 +1,13 @@
-# FLASH_TOOL
+# embEDUx Flash Tool
 
-...Describtion...
+TODO ...Describtion...
+
+## Installation
+
+### System Requirements
+
+- python
+- virtualenv
 
 
 ## Supported Platforms
@@ -45,4 +52,15 @@ _SYSO:_
 _BSYS:_
  - ...
 
+
+# Development (Brainstorming)
+
+__pyrsync:__
+
+ Kann nicht über das normale pip prozedere installiert werden (siehe [Issue](https://github.com/isislovecruft/pyrsync/issues/3)).
+ Folgendes Kommando muss ausgeführt werden:
+
+  pip install -egit+https://github.com/isislovecruft/pyrsync#egg=pyrsync
+
+ TODO: Wie muss ein paket angegeben werden, damit es automatisch angezogen wird.
 
