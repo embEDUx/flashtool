@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-name="flash_tool"
+name="flashtool"
 
 def get_version(relpath="__init__.py"):
     """read version info from file without importing it"""
@@ -25,7 +25,7 @@ setup(
     keywords="embedded flash",
     entry_points={
         'conosle_scripts': [
-            'flash_tool=flas_tool:main'
+            'flashtool=flas_tool:main'
         ]
     },
     install_requires=[
