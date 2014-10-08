@@ -1,4 +1,4 @@
 --index-url https://pypi.python.org/simple/
 
--e https://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git#egg=flashtool
+-e git+http://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git#egg=flashtool
 -e .
