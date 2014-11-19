@@ -9,6 +9,7 @@ TODO ...Describtion...
 - python
 - virtualenv
 - libudev >= 151
+- git
 
 
 ## Supported Platforms

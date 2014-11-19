@@ -18,7 +18,7 @@ def user_prompt(question, info, check=None):
         while not re.match(combined, user_input):
             user_input = get_input(u'{0:s} [{1:s}]\n{2:s}: '.format(question, combined.replace('^', '').replace('$', ''), info))
     else:
-        user_input = get_input(u'{0:s}\n{1:s}:'.format(question, info))
+        user_input = get_input(u'{0:s}\n{1:s}: '.format(question, info))
 
     return user_input
 
