@@ -8,6 +8,7 @@ TODO ...Describtion...
 
 - python
 - virtualenv
+- libudev >= 151
 
 
 ## Supported Platforms
