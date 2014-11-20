@@ -110,6 +110,20 @@ class ConfigLoader():
             log.info('  Values for required options  ' + Fore.GREEN + 'EXIST')
 
 
+    def check_values(self, config_options):
+        self.__parser.read(self.file)
+        answer = True
+        if self.__is_valid_config(config_options):
+            for section in config_options.keys():
+                options = config_options[section]
+
+                for option in options:
+                    if not self.__parser[section][option]:
+                        answer = False
+
+        return answer
+
+
 
     def __is_valid_config(self, config_options):
         '''
@@ -120,20 +134,24 @@ class ConfigLoader():
         '''
         is_valid = True
         for section in config_options.keys():
+            if not self.__parser.has_section(section):
+                is_valid = False
+                break
+
             log.info('Check options in section "{}"'.format(section))
             options_in_parser = []
             for i in self.__parser.options(section):
                 options_in_parser.append(i)
 
-            log.info('  Existing options: {}'.format(options_in_parser))
-            log.info('  Required options: {}'.format(config_options[section]))
+            log.debug('  Existing options: ' + Fore.YELLOW + '{}'.format(','.join(options_in_parser)))
+            log.debug('  Required options: ' + Fore.YELLOW + '{}'.format(','.join(config_options[section])))
 
             if not set(config_options[section]).issubset(set(options_in_parser)):
                 is_valid = False
                 log.info('  Section {}: ' + Fore.RED + 'INVALID'.format(section))
                 break
 
-            log.info('  Section {}: ' + Fore.GREEN + 'VALID'.format(section))
+            log.info('Section [{}]: '.format(section) + Fore.GREEN + 'VALID')
 
         return is_valid
 

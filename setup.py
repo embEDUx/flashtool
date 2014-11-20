@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-name = "flashtool"
+name = "embedux_flashtool"
 
 
 def get_version(relpath="__init__.py"):
@@ -28,12 +28,13 @@ setup(
     keywords="embedded flash",
     entry_points={
         'conosle_scripts': [
-            'flashtool=flas_tool:main'
+            'flashtool=embedux_flashtool:main'
         ]
     },
     install_requires=[
         'colorama',
-        'pyudev'
+        'pyudev',
+        'argcomplete'
     ],
     classifiers=[
         'Environment :: Console',
