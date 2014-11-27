@@ -43,7 +43,7 @@ class ConfigLoader():
             self.__parser.read(self.file)
 
             if self.__is_valid_config(config_options):
-                return self.__parser.sections()
+                return self.__parser
 
 
     def enter_config(self, config_options, overwrite=False):

@@ -34,7 +34,9 @@ setup(
     install_requires=[
         'colorama',
         'pyudev',
-        'argcomplete'
+        'argcomplete',
+        'sh',
+        'PyYAML'
     ],
     classifiers=[
         'Environment :: Console',
