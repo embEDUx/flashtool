@@ -10,6 +10,9 @@ TODO ...Describtion...
 - virtualenv
 - libudev >= 151
 - git
+- python-parted / pyparted
+
+pip install -egit+https://GIT-URL#egg=pyrsync
 
 
 ## Supported Platforms
@@ -62,7 +65,4 @@ __pyrsync:__
  Kann nicht über das normale pip prozedere installiert werden (siehe [Issue](https://github.com/isislovecruft/pyrsync/issues/3)).
  Folgendes Kommando muss ausgeführt werden:
 
-  pip install -egit+https://github.com/isislovecruft/pyrsync#egg=pyrsync
-
- TODO: Wie muss ein paket angegeben werden, damit es automatisch angezogen wird.
-
+  

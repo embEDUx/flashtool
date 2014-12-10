@@ -1,1 +1,0 @@
--e git+http://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git#egg=flashtool

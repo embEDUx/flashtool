@@ -36,7 +36,8 @@ setup(
         'pyudev',
         'argcomplete',
         'sh',
-        'PyYAML'
+        'PyYAML',
+        'configparser'
     ],
     classifiers=[
         'Environment :: Console',
