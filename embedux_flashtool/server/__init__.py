@@ -21,12 +21,22 @@ class Server(object):
         pass
 
 
+class METHOD():
+        GIT = 0
+
+        used_software = ['git']
+
+        @classmethod
+        def str(cls,select):
+            return cls.used_software[select]
+
 class Git(Server):
-    def __init__(self, url, dest, name):
+    def __init__(self, url, dest, name, branch = 'Master'):
         Server.__init__(self,url,dest,name)
 
         self.__url = url
         self.__name = name
+        self.__branch = branch
         
         if re.match('.*/$', dest):
             self.__dest = dest
@@ -59,7 +69,7 @@ class Git(Server):
                     self.update()
         else:
             log.debug('Cloning {} into {} with alias {}'.format(self.__url, self.__dest, self.__name))
-            command = 'git -C ' +  self.__dest + ' clone ' + self.__url + ' ' + self.__name
+            command = 'git -C {} clone -b {} --single-branch {} {}'.format(self.__dest, self.__branch, self.__url, self.__name)
             log.info(command)
             sub.call(command, shell=True)
 
