@@ -4,10 +4,7 @@ import re
 import logging as log
 from colorama import Fore
 
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
+import configparser
 
 __author__ = 'mahieke'
 
