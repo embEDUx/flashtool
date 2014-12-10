@@ -2,6 +2,9 @@ __author__ = 'mahieke'
 
 import re
 import sys
+import logging as log
+from colorama import Fore
+
 
 def user_prompt(question, info, check=None):
     '''
@@ -24,26 +27,29 @@ def user_prompt(question, info, check=None):
 
 
 def create_regex_allowed(chk):
-    if isinstance(chk, str) or isinstance(chk, list):
-        return "(^" + "$)|(^".join(chk) + "$)"
+    return "(^" + "$)|(^".join(chk) + "$)"
 
 
 # input compatibility for python2 to python3
 def get_input(prompt):
     if sys.hexversion > 0x03000000:
+        log.debug('USING input() FUNCTION (PYTHON>3.0)')
         return input(prompt)
     else:
+        log.debug('USING raw_input() FUNCTION (PYTHON<=3.0)')
         return raw_input(prompt)
 
 
 import os
 # compatibility function: shutil.which() does not exist in version
 def shutil_which(cmd, mode=os.F_OK | os.X_OK, path=None):
-    if sys.hexversion > 0x03030000:
+    if sys.hexversion >= 0x03030000:
+        log.debug('USING shutil.which() FUNCTION (PYTHON>=3.3)')
         import shutil
         return shutil.which(cmd, mode, path)
     else:
         # Copied from: https://hg.python.org/cpython/file/6860263c05b3/Lib/shutil.py#l1068
+        log.debug('USING OWN which() IMPLEMENTATION (PYTHON<3.3)')
         # Check that a given file can be accessed with the correct mode.
         # Additionally check that `file` is not a directory, as on Windows
         # directories pass the os.access check.
@@ -97,12 +103,44 @@ def shutil_which(cmd, mode=os.F_OK | os.X_OK, path=None):
         return None
 
 
-def get_size_block_dev(dev_name):
-    BLOCK_SIZE_BYTES = 512
+def get_size_block_dev(dev_name, partition=None):
+    '''
+
+    :param dev_name: Disk name of block device
+    :param partition:  Partition of disk
+    :return: Size of disk/partition
+    '''
+    BLOCK_SIZE_BYTES = 0
+    blocks = 0
+
+    sys_path = '/sys/block/{}/'.format(dev_name)
+
+    block_size_path = sys_path + 'queue/physical_block_size'
+    if partition:
+        size_path = sys_path + '{}/size'.format(partition)
+    else:
+        size_path = sys_path + 'size'
+
     try:
-        BLOCK_SIZE_BYTES = int(open('/sys/block/{}/queue/physical_block_size'.format(dev_name)).read())
-        blocks = int(open('/sys/block/{}/size'.format(dev_name)).read())
-    except:
-        blocks = 0
+        BLOCK_SIZE_BYTES = int(open(block_size_path).read())
+        blocks = int(open(size_path).read())
+        log.debug('INFO FROM: {})'.format(size_path))
+        log.debug('{} HAS {} BLOCKS (BLOCK SIZE: {})'.format(dev_name, blocks, BLOCK_SIZE_BYTES))
+    except Exception as e:
+        log.debug('CAN\'T DETERMINE SIZE OF BLOCK DEVICE {}, EXCEPTION MESSAGE: {}'.format(dev_name, e))
 
     return blocks * BLOCK_SIZE_BYTES
+
+
+import os, grp
+def check_permissions(file):
+    file_stat = os.stat(file)
+    gr = [file_stat.st_uid, file_stat.st_gid]
+    file_groups = [grp.getgrgid(g).gr_name for g in gr]
+    current_groups = [grp.getgrgid(g).gr_name for g in os.getgroups()]
+
+    if any([group in current_groups for group in file_groups]):
+        return
+    else:
+        print(Fore.YELLOW + 'Permissions are needed for this operation. Groups: {}'.format(', '.join(file_groups)))
+        exit()
