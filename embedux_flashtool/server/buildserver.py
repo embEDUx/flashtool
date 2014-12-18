@@ -27,6 +27,10 @@ class Buildserver():
         '''
         Interface for a buildbot build server. This class provides methods to get information
         about the builds on the server.
+        
+        :param address: Address to the buildbot server.
+        :param port: Port for the buildbot server web interface.
+        :param configured_platforms: Valid platforms with existing yaml-recipe.
         '''
         address = address.rstrip('/').rstrip(':')
         self.url = '{}:{}'.format(address, port)
@@ -43,7 +47,7 @@ class Buildserver():
             if r.status_code != 200:
                 raise BuildserverConnectionError('Can\'t connect to server. Status code {}'.format(r.status_code))
         except ConnectionError as e:
-            raise BuildserverConnectionError('Can\'t connect to server. {}, {}'.format(e.err, e.request))
+            raise BuildserverConnectionError('Can\'t connect to server. Response: {}, Request: {}'.format(e.response , e.request))
         except Timeout as e:
             raise BuildserverConnectionError('Connection timed out.\n' + Fore.RED + 'Info: {}'.format(e.message))
 
@@ -52,7 +56,6 @@ class Buildserver():
 
     def get_builds(self, platform, product='all'):
         pass
-
 
 
     def get_builds_info(self, force_new=False):
@@ -80,16 +83,21 @@ class Buildserver():
                 builds_info = self.__get_json_data(json_path)
                 
                 if builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
-                    source_stamps = builds_info['sourceStamps'][0]
-                    branch = source_stamps['branch']
-                    platform = branch.split('_')[-1]
-                    component = source_stamps['repository'].split('/')[-1].split('.')[0]
+                    props = (x for y in builds_info['properties'] for x in y)
+                    
+                    if platform == (props.next() for item in props if item == 'platform').next():
+                        product = (props.next() for item in props if item == 'product').next()
+                        files = (props.next() for item in props if item == 'upload_files').next()
 
-                    if builds.get(component):
-                        if platform not in builds[component]:
-                            builds[component].append(platform)
-                    else:
-                        builds[component] = [platform]
+                        if builds.get(platform):
+                            if builds[platform].get(product):
+                                builds[platform][product].extend(files)
+                            else:
+                                builds[platform].update( { product: files } )
+                        else:
+                            builds.update(
+                                { platform: OrderedDict( { product: files } ) }
+                            )
 
         self.info['builds'] = builds
 
@@ -103,7 +111,6 @@ class Buildserver():
         Collected information will contain branch-filter name and corresponding
         architecture type.
 
-        :param configured_platforms: Valid platforms with existing yaml-recipe.
         :return: List of tuples ({platform}, {architecture})
         '''
         builders = self.info['builders']
@@ -168,16 +175,20 @@ class Buildserver():
 
         :param info: json data for a specific builder
         '''
-        done_builds = list(set(info['cachedBuilds']) - set(info['currentBuilds'])) # builds which are done
+        retVal = (info['basedir'], {'builds': [], 'schedulers': []})
 
-        if len(done_builds) > 0:
-            retVal = (info['basedir'], {'builds': done_builds, 'schedulers': []})
-
-            for entry in info['schedulers'][1:]:
-                retVal[1]['schedulers'].append(
-                    entry.split(': ')[-1].strip('\'').strip('.*')
-                )
-
+        for entry in info['schedulers']:
+            splited_string = entry.split(' / ')
+            if len(splited_string) == 3:
+                if splited_string[0] == 'default':
+                    scheduler = splited_string[2].split(': ')[1].strip('\'').strip('.*')
+                    if scheduler in self.valid_platforms:
+                        retVal[1]['schedulers'].append(scheduler)
+                    
+        if retVal[1]['schedulers']:
+            arch = retVal[0]
+            json_path = 'json/builders/{}/builds/_all'.format(arch)
+            retVal[1]['builds'] = self.__get_json_data(json_path).keys()
             return retVal
 
 
