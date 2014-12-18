@@ -1,11 +1,9 @@
 __author__ = 'mahieke'
 
-from embedux_flashtool.setup.prepare import recipe
-from embedux_flashtool.setup.prepare import runnable
-from embedux_flashtool.setup.prepare import RecipeContentException
+from embedux_flashtool.setup.prepare.recipe import Recipe
 
-class components_config(recipe):
-    attr = ['uboot', 'linux', 'rootfs', 'misc']
+class ComponentsConfig(Recipe):
+    attr = ['Uboot', 'Linux', 'Rootfs', 'Misc']
 
     def __init__(self, attributes, rec):
         self.check_attributes(attributes)
@@ -17,37 +15,37 @@ class components_config(recipe):
 
         self.check_attributes(new_attributes)
 
-        recipe.__init__(self, new_attributes)
+        Recipe.__init__(self, new_attributes)
 
 
-class linux(recipe):
+class Linux(Recipe):
     attr = ['module', 'kernel_dest', 'modules_dest']
 
     def __init__(self, attributes):
         self.check_attributes(attributes)
-        recipe.__init__(self, attributes)
+        Recipe.__init__(self, attributes)
 
 
-class uboot(recipe):
+class Uboot(Recipe):
     attr = ['module', 'uboot_dest']
 
     def __init__(self, attributes):
         self.check_attributes(attributes)
-        recipe.__init__(self, attributes)
+        Recipe.__init__(self, attributes)
 
-class rootfs(recipe):
+class Rootfs(Recipe):
     attr = ['module', 'rootfs_dest']
 
     def __init__(self, attributes):
         self.check_attributes(attributes)
-        recipe.__init__(self, attributes)
+        Recipe.__init__(self, attributes)
 
-class misc(recipe):
+class Misc(Recipe):
     attr = ['module', 'boot_dest', 'root_dest']
 
     def __init__(self, attributes):
         self.check_attributes(attributes)
-        recipe.__init__(self, attributes)
+        Recipe.__init__(self, attributes)
 
 
-__entry__ = components_config
+__entry__ = ComponentsConfig

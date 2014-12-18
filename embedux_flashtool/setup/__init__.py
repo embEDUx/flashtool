@@ -1,8 +1,8 @@
 __author__ = 'mahieke'
 
 import yaml
-from embedux_flashtool.setup.prepare import RecipeImportException
-from embedux_flashtool.setup.prepare import RecipeContentException
+from embedux_flashtool.setup.prepare.recipe import RecipeImportException
+from embedux_flashtool.setup.prepare.recipe import RecipeContentException
 
 
 class Setup():
@@ -28,7 +28,7 @@ class Setup():
         if not recipe_type:
             raise RecipeContentException('{}.document({}): does not define attribute "type".'.format(recipe_file, doc_pos))
 
-        if recipe_type != 'components_config':
+        if recipe_type != 'ComponentsConfig':
             raise RecipeContentException('First document must be of type "components_config"')
 
         recipe_content = comp_conf.get('recipe')
@@ -71,23 +71,25 @@ class Setup():
 # TODO: check if path is suitable when installed via pip
 def _import_recipe_class(name, path="embedux_flashtool.setup.prepare."):
     """import setup recipe class """
-    from embedux_flashtool.setup.prepare import recipe
+    from embedux_flashtool.setup.prepare.recipe import Recipe
     import importlib
+
+    python_name = name.lower()
 
     if path[-1] != '.':
         path += '.'
 
     try:
-        imp = importlib.import_module(path + name)
+        imp = importlib.import_module(path + python_name)
         recipe_class = imp.__entry__
-        if issubclass(recipe_class, recipe):
+        if issubclass(recipe_class, Recipe):
             return recipe_class
         else:
             raise RecipeImportException('Recipe class "{}" must inherit from class "recipe"!'.format(recipe_class))
     except AttributeError as e:
-        raise RecipeImportException('Recipe module "{}" must define the attribute __entry__'.format(path + name))
+        raise RecipeImportException('Recipe module "{}" must define the attribute __entry__'.format(path + python_name))
     except ImportError as e:
-        raise RecipeImportException('Recipe module "{}" could not be found!'.format(path + name))
+        raise RecipeImportException('Recipe module "{}" could not be found!'.format(path + python_name))
     except TypeError as e:
-        raise RecipeImportException('Value of "{}.__entry__" must be a class!'.format(path + name))
+        raise RecipeImportException('Value of "{}.__entry__" must be a class!'.format(path + python_name))
 

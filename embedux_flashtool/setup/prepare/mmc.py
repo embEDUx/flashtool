@@ -3,10 +3,10 @@ from __future__ import print_function
 
 __author__ = 'mahieke'
 
-from embedux_flashtool.setup.udev.mmc import MMC
-from embedux_flashtool.setup.prepare import recipe
-from embedux_flashtool.setup.prepare import runnable
-from embedux_flashtool.setup.prepare import RecipeContentException
+import embedux_flashtool.setup.udev.mmc as udev
+from embedux_flashtool.setup.prepare.recipe import Recipe
+from embedux_flashtool.setup.prepare.recipe import Runnable
+from embedux_flashtool.setup.prepare.recipe import RecipeContentException
 import embedux_flashtool.utility as util
 
 import re
@@ -30,14 +30,14 @@ mkfs_support = {
     'btrfs': ['mkfs.btrfs', '-f', '-L ']
 }
 
-class mmc(recipe, runnable):
+class MMC(Recipe, Runnable):
     attr = ['partitions', 'partition_table']
 
     def __init__(self, attributes):
         parts = []
         has_max_size = False
         for elem in attributes['partitions']:
-            part = partition(elem)
+            part = Partition(elem)
             if part.size == max:
                 if has_max_size:
                     raise RecipeContentException('Only one partition can set the max flag for size.')
@@ -52,12 +52,12 @@ class mmc(recipe, runnable):
 
         attributes['partitions'] = parts
         self.check_attributes(attributes)
-        recipe.__init__(self, attributes)
+        Recipe.__init__(self, attributes)
         self.__check_partition_table(self.partition_table)
 
 
     def run(self):
-        memory_cards_info = MMC().get_mmc_info()
+        memory_cards_info = udev.get_mmc_info()
 
         print('Found these devices:')
 
@@ -107,7 +107,7 @@ class mmc(recipe, runnable):
 
         self.__format()
 
-        memory_cards_info = MMC().get_information([part.path.strip('/dev/') for part in partitions])
+        memory_cards_info = udev.get_information([part.path.strip('/dev/') for part in partitions])
 
         return memory_cards_info
 
@@ -291,7 +291,7 @@ class mmc(recipe, runnable):
             raise RecipeContentException('Partition table {} stated in document is not supported!'.format(part_table))
 
 
-class partition(recipe):
+class Partition(Recipe):
     attr = ['name', 'size', 'fs_type', 'mount_point', 'mount_opts', 'flags']
 
     def __init__(self, attributes):
@@ -300,7 +300,7 @@ class partition(recipe):
             attributes['size'] = self.__to_byte(attributes['size'])
         attributes['name'] = attributes['name'].upper()
 
-        recipe.__init__(self, attributes)
+        Recipe.__init__(self, attributes)
         self.__check_fs_type(self.fs_type)
         self.__check_partition_flag(self.flags)
 
@@ -349,4 +349,4 @@ class partition(recipe):
             raise RecipeContentException(
                 'Partition size is not valid. Given value: "{}", Allowed: #num( ,%,kb,mb,gb,tb)'.format(string))
 
-__entry__ = mmc
+__entry__ = MMC

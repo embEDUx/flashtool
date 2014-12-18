@@ -13,7 +13,6 @@ from colorama import Style
 
 from embedux_flashtool.configloader import ConfigLoader
 from embedux_flashtool.server import cfgserver
-from embedux_flashtool.setup.udev.mmc import MMC
 from embedux_flashtool.setup import Setup
 import embedux_flashtool.utility as util
 from embedux_flashtool.server.buildserver import Buildserver
@@ -227,7 +226,6 @@ class Flashtool():
                   .format(args.platform, args.source, args.auto)
         )
 
-
         supported_platforms = self.__get_platforms()
 
         if args.platform not in supported_platforms:
@@ -243,7 +241,7 @@ class Flashtool():
             print(message)
 
             message = 'Or you must define a new recipe file ' + Fore.YELLOW + "{}.yml".format(args.platform)
-            message += Fore.RESET + ' at directory ' + Fore.YELLOW + '"{}/{}" or repository "{}".'\
+            message += Fore.RESET + ' at directory ' + Fore.YELLOW + '"{}/{}" or repository "{}".' \
                 .format(self.working_dir, self.platform_cfg, self.__conf['Config']['server'])
 
             print(message)
@@ -268,7 +266,7 @@ class Flashtool():
             print(Fore.GREEN + 'The following platforms are supported: ' + Fore.YELLOW +
                   '{}'.format(', '.join(platforms)))
         else:
-            print(Fore.RED + 'Found no platform recipes. Please run command ' + Fore.YELLOW + '"conf init" ' +
+            print(Fore.RED + 'Found no platform recipe. Please run command ' + Fore.YELLOW + '"conf init" ' +
                   Fore.RED + 'first')
 
 
@@ -313,4 +311,11 @@ def main():
     # Init colorama
     init(autoreset=True)
     tool = Flashtool()
-    tool.parse()
+
+    try:
+        tool.parse()
+    except KeyboardInterrupt:
+        print('')
+        print(Fore.GREEN + 'User aborted the process!')
+        print(Fore.RED + Style.BRIGHT + 'This could lead to a inconsistent state for '
+                                        'the configured platform, if interrupted after the preparation procedure.')
