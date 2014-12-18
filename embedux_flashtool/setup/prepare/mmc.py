@@ -3,10 +3,10 @@ from __future__ import print_function
 
 __author__ = 'mahieke'
 
-from embedux_flashtool.device.udev.mmc import MMC
-from embedux_flashtool.device.prepare import recipe
-from embedux_flashtool.device.prepare import runnable
-from embedux_flashtool.device.prepare import RecipeContentException
+from embedux_flashtool.setup.udev.mmc import MMC
+from embedux_flashtool.setup.prepare import recipe
+from embedux_flashtool.setup.prepare import runnable
+from embedux_flashtool.setup.prepare import RecipeContentException
 import embedux_flashtool.utility as util
 
 import re
@@ -77,7 +77,7 @@ class mmc(recipe, runnable):
             self.devices.append(v['path'])
 
         if len(self.devices) > 1:
-            device = util.user_prompt('Please select a device to continue:', 'device', self.devices)
+            device = util.user_prompt('Please select a setup to continue:', 'setup', self.devices)
         else:
             device = self.devices[0]
 
@@ -88,7 +88,7 @@ class mmc(recipe, runnable):
             print('  partition {}: name: {}: (size: {}, fs: {})'.format(i, part.name, part.size, part.fs_type))
             i += 1
 
-        answer = util.user_prompt('Do you want to continue? This will overwrite the whole mmc device', 'Answer', "YyNn")
+        answer = util.user_prompt('Do you want to continue? This will overwrite the whole mmc setup', 'Answer', "YyNn")
 
         if re.match("[Nn]", answer):
             print(Fore.RED + 'ABORT!')
@@ -112,7 +112,7 @@ class mmc(recipe, runnable):
         return memory_cards_info
 
     def __check_disk(self, device):
-        print('Checking first MB of device for errors...')
+        print('Checking first MB of setup for errors...')
         file_size = 1024*1024
         data_chunk_builder = [0]*file_size
 
@@ -130,7 +130,7 @@ class mmc(recipe, runnable):
         print('{} seconds'.format(end-start))
 
 
-        print(Fore.YELLOW + 'Writing 1MB of data to beginning of device: ', end="")
+        print(Fore.YELLOW + 'Writing 1MB of data to beginning of setup: ', end="")
         start = timer()
         fd = os.open(device, os.O_SYNC | os.O_WRONLY)
         os.write(fd, data_chunk)
@@ -139,7 +139,7 @@ class mmc(recipe, runnable):
         print('{} seconds'.format(end-start))
 
         read_data_chunk = ''
-        print(Fore.YELLOW + 'Reading 1MB of data from device: ', end="")
+        print(Fore.YELLOW + 'Reading 1MB of data from setup: ', end="")
         start = timer()
         fd = os.open(device, os.O_SYNC | os.O_RDONLY)
         read_data_chunk = os.read(fd,file_size)

@@ -13,8 +13,8 @@ from colorama import Style
 
 from embedux_flashtool.configloader import ConfigLoader
 from embedux_flashtool.server import cfgserver
-from embedux_flashtool.device.udev.mmc import MMC
-from embedux_flashtool.device import Setup
+from embedux_flashtool.setup.udev.mmc import MMC
+from embedux_flashtool.setup import Setup
 import embedux_flashtool.utility as util
 from embedux_flashtool.server.buildserver import Buildserver
 
@@ -114,7 +114,7 @@ class Flashtool():
         list_builds_parser.set_defaults(func=self.__list_builds)
 
         # setup
-        setup_parser = subparser.add_parser('setup', help='Setup a device with specified component')
+        setup_parser = subparser.add_parser('setup', help='Setup a setup with specified component')
 
         setup_group_general = setup_parser.add_argument_group('General options')
 

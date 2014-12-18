@@ -1,8 +1,8 @@
 __author__ = 'mahieke'
 
-from embedux_flashtool.device.prepare import recipe
-from embedux_flashtool.device.prepare import runnable
-from embedux_flashtool.device.prepare import RecipeContentException
+from embedux_flashtool.setup.prepare import recipe
+from embedux_flashtool.setup.prepare import runnable
+from embedux_flashtool.setup.prepare import RecipeContentException
 
 class components_config(recipe):
     attr = ['uboot', 'linux', 'rootfs', 'misc']

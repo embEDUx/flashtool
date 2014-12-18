@@ -106,7 +106,7 @@ def shutil_which(cmd, mode=os.F_OK | os.X_OK, path=None):
 def get_size_block_dev(dev_name, partition=None):
     '''
 
-    :param dev_name: Disk name of block device
+    :param dev_name: Disk name of block setup
     :param partition:  Partition of disk
     :return: Size of disk/partition
     '''
