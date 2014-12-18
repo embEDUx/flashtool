@@ -12,6 +12,14 @@ TODO ...Describtion...
 - git
 - python-parted / pyparted
 
+- maybe use blivet:
+    * git+https://github.com/dcantrell/pyparted.git
+    * git+https://github.com/dwlehman/blivet.git (pip)
+    * git+https://github.com/clumens/pykickstart.git (pip)
+    * git+https://git.fedorahosted.org/git/python-cryptsetup.git
+    * libselinux (system package manager)
+    * pyudev
+
 pip install -egit+https://GIT-URL#egg=pyrsync
 
 
