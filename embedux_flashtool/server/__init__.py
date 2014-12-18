@@ -4,35 +4,18 @@ import subprocess as sub
 import os
 import re
 from colorama import Fore
-import embedux_flashtool.utility as util
 import shutil
 import logging as log
 
+import embedux_flashtool.utility as util
+
 _word = '[a-zA-Z]|[0-9]|[-_.]'
 
-class Server(object):
-    def __init__(self, url, dest, name):
-        super(Server, self).__init__()
-
-    def initial_load(self):
-        pass
-
-    def update(self):
-        pass
-
-
-class METHOD():
-        GIT = 0
-
-        used_software = ['git']
-
-        @classmethod
-        def str(cls,select):
-            return cls.used_software[select]
-
-class Git(Server):
+class Git():
     def __init__(self, url, dest, name, branch = 'Master'):
-        Server.__init__(self,url,dest,name)
+        #Check if software is installed
+        if not util.shutil_which('git'):
+            raise ReferenceError('You must install "git" to get access to the specified server')
 
         self.__url = url
         self.__name = name
@@ -48,7 +31,6 @@ class Git(Server):
 
         if not os.path.isdir(dest):
             raise PathError('Given path is not a directory!')
-
 
     def initial_load(self):
         if os.path.isdir(self.__dest + self.__name):
@@ -73,16 +55,18 @@ class Git(Server):
             log.info(command)
             sub.call(command, shell=True)
 
-
     def update(self):
         if os.path.isdir(self.__dest + self.__name):
-            command = 'git -C ' + self.__dest + self.__name + ' pull -X recursive-theirs'
+            command = 'git -C {} pull -X recursive-theirs'.format(self.__dest + self.__name)
             log.debug('Update local repository {}/{} from remote {}'.format(self.__dest, self.__name, self.__url))
             log.info(command)
             git_ret = sub.call(command, shell=True)
         else:
             print('Directory does not exist.' + Fore.RED + 'Can\'t Update!')
 
+
+    def list_files(self, dir):
+        command = 'git -C {} clone -b {} --single-branch {} {}'.format(self.__dest, self.__branch, self.__url, self.__name)
 
 
     def __check_url(self):
