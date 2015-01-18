@@ -41,7 +41,7 @@ setup(
     ],
     classifiers=[
         'Environment :: Console',
-        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Topic :: Utilities',
     ],
 )
