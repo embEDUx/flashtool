@@ -6,6 +6,7 @@ from functools import partial
 from pyudev import Context
 from pyudev import Device
 from pyudev import Monitor
+from collections import OrderedDict
 
 def get_info(dev, indent=0):
     form = '{:' + str(indent) + '}{} = {}'
@@ -15,20 +16,11 @@ def get_info(dev, indent=0):
     print('')
 
 
-def get_mmc_info():
+def get_active_mmc_info():
     '''
 
     :return: Information for Block devices
     '''
-    def get_real_block_devices(guessed_devices):
-        real_block_device = []
-        for dev in guessed_devices:
-            if util.get_size_block_dev(dev) != 0:
-                log.debug('DEVICE {} SHOULD BE A BLOCK DEVICE!'.format(dev))
-                real_block_device.append(dev)
-
-        return real_block_device
-
     def get_childs_info(udev_device):
         info = {}
 
@@ -40,33 +32,50 @@ def get_mmc_info():
                 'fs_version': child.get('ID_FS_VERSION')
             }
 
-        return info
+        return OrderedDict(sorted(info.items()))
 
-    info = {}
+    info = OrderedDict()
 
     util.user_prompt('Please remove the Flash Card first', 'Done?')
 
     print('Searching for Flash Card. Please insert Flash Card...')
-    while True:
-        guessed_devices = MMCProfiler().guess()
-        guessed_devices = get_real_block_devices(guessed_devices)
 
-        if guessed_devices:
-            break
+    guessed_devices = guess_devices()
 
     log.debug('GET ALL PARTITIONS OF DEVICES {}'.format(', '.join(guessed_devices)))
 
     for device in guessed_devices:
         udev_device = Device.from_name(Context(), 'block', device)
-        info[device] = {
+        info[device] = OrderedDict({
             'path': udev_device.device_node,
             'part_table': udev_device.get('ID_PART_TABLE_TYPE'),
             'size': util.get_size_block_dev(udev_device.sys_name),
-            'partitions': {}
-        }
+            'partitions': OrderedDict()
+        })
         info[device]['partitions'].update(get_childs_info(udev_device))
 
     return info
+
+
+def _get_real_block_devices(guessed_devices):
+    real_block_device = []
+    for dev in guessed_devices:
+        if util.get_size_block_dev(dev) != 0:
+            log.debug('DEVICE {} SHOULD BE A BLOCK DEVICE!'.format(dev))
+            real_block_device.append(dev)
+
+    return real_block_device
+
+
+def guess_devices():
+    while True:
+        guessed_devices = MMCProfiler().guess()
+        guessed_devices = _get_real_block_devices(guessed_devices)
+
+        if guessed_devices:
+            break
+
+    return guessed_devices
 
 
 def get_information(devices):
@@ -87,29 +96,6 @@ def get_information(devices):
 
 
 class MMCProfiler(object):
-    '''
-        'ext_plgd': {
-            'description': 'external reader already plugged in, waiting for sd card to be plugged in',
-            'add': {},
-            'change': '1'
-        },
-        'ext_no_plgd': {
-            'description': 'waiting for external reader to be plugged in, then waiting for sd card to be plugged in',
-            'add': 'equal',
-            'change': 'highest'
-        },
-        'ext_no_plgd_sd': {
-            'description': 'waiting for external reader to be plugged in, sd card is already plugged in',
-            'add': 'equal',
-            'change': 'difference'
-        },
-        'intern': {
-            'description': 'waiting for sd card to be plugged in internal reader',
-            'add': '1',
-            'change': {}
-        }
-    '''
-
     def __init__(self):
         context = Context()
         monitor_mmc = Monitor.from_netlink(context)
@@ -147,7 +133,7 @@ class MMCProfiler(object):
             diff = set(list(self.__cnt['add'].keys())) - set(list(self.__cnt['change'].keys()))
             if  diff == set([]): # Use-Case 2
                 maximum = max(self.__cnt['add'].values())
-                devname = [k for k,v in self.__cnt.iteritems() if v == maximum]
+                devname = [k for k,v in self.__cnt.items() if v == maximum]
             else: # Use-Case 3
                 devname = diff
         else:

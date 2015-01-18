@@ -65,10 +65,6 @@ class Git():
             print('Directory does not exist.' + Fore.RED + 'Can\'t Update!')
 
 
-    def list_files(self, dir):
-        command = 'git -C {} clone -b {} --single-branch {} {}'.format(self.__dest, self.__branch, self.__url, self.__name)
-
-
     def __check_url(self):
         re_git = r'git@(' + _word + ')+:(\/|' + _word + ')+\.git'
         re_https = r'https:\/\/(' + _word + ')+:(\/|' + _word + ')+\.git'

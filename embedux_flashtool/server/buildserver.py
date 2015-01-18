@@ -5,6 +5,14 @@ from requests.exceptions import *
 from colorama import Fore
 import logging as log
 from collections import OrderedDict
+from itertools import islice
+import os
+import re
+import sys
+from urllib.request import urlretrieve
+
+import embedux_flashtool.utility as util
+
 
 class BuildserverConnectionError(Exception):
     def __init__(self, message):
@@ -27,10 +35,10 @@ class Buildserver():
         '''
         Interface for a buildbot build server. This class provides methods to get information
         about the builds on the server.
-        
+
         :param address: Address to the buildbot server.
         :param port: Port for the buildbot server web interface.
-        :param configured_platforms: Valid platforms with existing yaml-recipe.
+        :param configured_platforms: Valid platforms
         '''
         address = address.rstrip('/').rstrip(':')
         self.url = '{}:{}'.format(address, port)
@@ -47,21 +55,190 @@ class Buildserver():
             if r.status_code != 200:
                 raise BuildserverConnectionError('Can\'t connect to server. Status code {}'.format(r.status_code))
         except ConnectionError as e:
-            raise BuildserverConnectionError('Can\'t connect to server. Response: {}, Request: {}'.format(e.response , e.request))
+            raise BuildserverConnectionError(
+                'Can\'t connect to server. Response: {}, Request: {}'.format(e.response, e.request))
         except Timeout as e:
             raise BuildserverConnectionError('Connection timed out.\n' + Fore.RED + 'Info: {}'.format(e.message))
 
         log.debug(Fore.GREEN + 'Buildserver url "{}" is valid.'.format(self.url))
 
+        self.loaded_files = []
 
-    def get_builds(self, platform, product='all'):
-        pass
+
+    def get_files(self, files, dest=None):
+        '''
+        Downloads files from the buildserver to the local destination. If dest is None the default path
+        will be at /tmp.
+        :param files: files per file_type
+        :param dest:
+        :return:
+        '''
+
+        def reporthook(blocknum, blocksize, totalsize):
+            percentage = (min(100, float(blocknum * blocksize) / totalsize * 100))
+
+            if 1023 < totalsize < 1024 * 1024:
+                size = float(1.0 / 1024.0) * float(totalsize)
+                print('    {:3.1f}% of {:.4f} kBytes'.format(percentage, size), end='\r'),
+            elif 1024 * 1024 < totalsize:
+                size = float(1.0 / 1024.0 * 1024.0) * float(totalsize)
+                print('    {:3.1f}% of {:.4f} MBytes'.format(percentage, size), end='\r'),
+            else:
+                print('    {:3.1f}% of {:.4f} Bytes'.format(percentage, totalsize), end='\r'),
+
+            sys.stdout.flush()
+
+        def file_exists(file_name):
+            return os.path.isfile(file_name)
+
+        ret_val = []
+        if not dest:
+            dest = '/tmp/flashtool'
+        else:
+            dest = dest.rstrip('/')
+
+        downloaded = []
+        for product, f_info in files:
+            for item in f_info:
+                url = '{}/{}'.format(self.url, item[1])
+                file_name = item[1].split('/')[-1]
+                dest_name = '{}/{}'.format(dest, product)
+                dest_file = '{}/{}'.format(dest_name, file_name)
+
+                if not os.path.isdir(dest_name):
+                    os.makedirs(dest_name)
+
+                if not file_exists(dest_file):
+                    downloaded.append(dest_file)
+                    print('   DOWNLOAD FILE:\n'
+                          '   URL:  {}\n'
+                          '   DEST: {}'.format(url, file_name))
+                    try:
+                        urlretrieve(url, dest_file, reporthook)
+                    except KeyboardInterrupt:
+                        print(Fore.YELLOW + '   User aborted download')
+                        os.remove(dest_file)
+                        raise
+                    except Exception as e:
+                        print(Fore.RED + '   An Error occured while downloading.')
+                        print(Fore.RED + '   {}'.format(repr(e)))
+                        os.remove(dest_file)
+                        raise
+
+                else:
+                    print(Fore.YELLOW + '   FILE {} WAS ALREADY DOWNLOADED:'.format(file_name))
+
+                ret_val.append((item[0], dest_file, os.stat(dest_file).st_size))
+
+        return ret_val
+
+
+    def get_files_path(self, file_info, reg_name, file_types, auto):
+        '''
+
+        :param file_info:
+        :param reg_name:
+        :param file_types:
+        :param auto:
+        :return:
+        '''
+        for platform, products_info in file_info.items():
+            for product, unsorted_files in products_info.items():
+                print('{}:'.format(product.upper()))
+
+                if product == 'rootfs':
+                    files = ['rootfs/{}/{}'.format(e[0], ee) for e in unsorted_files for ee in e[1]]
+                else:
+                    files = ['{}/{}/{}'.format(product, platform, e) for e in unsorted_files]
+
+                str_match = '.*{}.*'.format(reg_name)
+                re_file = re.compile(str_match)
+                matched_files = list(filter(lambda f_name: re_file.match(f_name), files))
+                versions = sorted(set([f[:f.rfind('_')] for f in matched_files]))
+
+                if len(versions) > 1:
+                    print(
+                    Fore.YELLOW + '  Found multiple versions for product {} with regex {}'.format(product, str_match))
+
+                    if auto:
+                        if product == 'rootfs' and str_match == '.*.*':
+                            print(Fore.GREEN + '  [AUTO-MODE] Take newest factory built.')
+                            filtered_versions = list(filter(lambda x: 'factory' in x,versions))
+                            version = filtered_versions[-1]
+                        else:
+                            # take newest
+                            print(Fore.GREEN + '  [AUTO-MODE] Take newest built.')
+                            version = versions[-1]
+                    else:
+                        i = 0
+                        for f in versions:
+                            print('    [{}]: {}'.format(i, f.split('/')[-1]))
+                            i += 1
+
+                        print('')
+                        selection = int(util.user_select('  [MANUAL-MODE] Please select a file:', 0, i))
+                        version = versions[selection]
+                elif len(versions) == 1:
+                    print(Fore.YELLOW + '  Found one version for product {} with regex {}'.format(product, str_match))
+                    version = versions[0]
+
+                print(Fore.GREEN + '  -> Selected version: {}:'.format(version.split('/')[-1]))
+
+        ret_val = []
+        for product, f_types in file_types:
+            f_info = []
+            for f_type in f_types:
+                f_info.append((f_type, next(f_name for f_name in matched_files if re.match('{}_{}.*'.format(version, f_type), f_name))))
+            ret_val.append((product, f_info))
+
+        return ret_val
+
+    def get_build_info(self, builds, wanted_products, wanted_platform=None):
+        ret_val = OrderedDict()
+
+        for k,v in builds.items():
+            if wanted_platform:
+                if k != wanted_platform:
+                    continue
+
+            for kk,vv in v.items():
+                if kk in wanted_products:
+                    if ret_val.get(k):
+                        ret_val[k].update({
+                            kk:vv
+                        })
+                    else:
+                        ret_val.update({
+                            k: OrderedDict({
+                                kk:vv
+                            })
+                        })
+
+        return ret_val
 
 
     def get_builds_info(self, force_new=False):
         '''
         Get all built software.
         '''
+
+        def get_json(buildername, build_num):
+            json_path = 'json/builders/{}/builds/{}'.format(buildername, build_num)
+            return self.__get_json_data(json_path)
+
+        class builds_info_helper():
+            def __init__(self):
+                self.builds = OrderedDict()
+
+            def append_to_builds(self, platform, product, files):
+                if self.builds.get(platform):
+                    if self.builds[platform].get(product):
+                        self.builds[platform][product].extend(files)
+                    else:
+                        self.builds[platform].update({product: files})
+                else:
+                    self.builds.update({platform: OrderedDict({product: files})})
+
         platforms = self.info['platforms']
 
         if not force_new:
@@ -71,37 +248,54 @@ class Buildserver():
         if not platforms or force_new:
             platforms = self.get_platforms_info(force_new)
 
-        builds = OrderedDict()
-        for entry in platforms:
-            platform = entry[0]
-            arch = entry[1]
-            
-            builder = filter(lambda e: e[0] == arch, self.info['builders'])[0]
-            
-            for build_num in builder[1]['builds']:
-                json_path = 'json/builders/{}/builds/{}'.format(arch, build_num)
-                builds_info = self.__get_json_data(json_path)
-                
-                if builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
-                    props = (x for y in builds_info['properties'] for x in y)
-                    
-                    if platform == (props.next() for item in props if item == 'platform').next():
-                        product = (props.next() for item in props if item == 'product').next()
-                        files = (props.next() for item in props if item == 'upload_files').next()
+        builds = builds_info_helper()
 
-                        if builds.get(platform):
-                            if builds[platform].get(product):
-                                builds[platform][product].extend(files)
-                            else:
-                                builds[platform].update( { product: files } )
-                        else:
-                            builds.update(
-                                { platform: OrderedDict( { product: files } ) }
-                            )
+        # get architectures from platforms and iterate through them
+        for platform, arch in platforms:
+            # Get all builders which contain the string of arch in it
+            builders = ((x[0], x[1]['last_build']) for x in (
+                    e for e in self.info['builders'] if arch == e[0]
+            ))
+            # get build information from builders
+            for buildername, last_build in builders:
+                for build_num in range(0,last_build + 1):
+                    builds_info = get_json(buildername, build_num)
 
-        self.info['builds'] = builds
+                    # only deal with build which are built succesfully
+                    if builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
+                        # flatten properties to a list with strings
+                        props = (x for y in builds_info['properties'] for x in y)
+                        platform = next((next(props) for item in props if item == 'platform'))
 
-        return builds
+                        if platform in self.valid_platforms:
+                            product = next((next(props) for item in props if item == 'product'))
+                            files = next((next(props) for item in props if item == 'upload_files'))
+
+                            builds.append_to_builds(platform, product, files)
+
+
+            rootfs_builders = list(map(lambda x: (x[0], x[1]['last_build']),
+                filter(lambda e: 'rootfs_{}'.format(arch) == e[0], self.info['builders'])
+            ))
+
+            for buildername, last_build in rootfs_builders:
+                for build_num in range(0, last_build + 1):
+                    builds_info = get_json(buildername, build_num)
+
+                    # only deal with build which are built succesfully
+                    if builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
+                        # flatten properties to a list with strings
+                        props = (x for y in builds_info['properties'] for x in y)
+                        rootfs_name = next((next(props) for item in props if item == 'platform'))
+                        files = next((next(props) for item in props if item == 'upload_files'))
+                        files = list(map(lambda x: (rootfs_name, files), files))
+
+                        for platform in (x[0] for x in platforms if x[1] == arch):
+                            builds.append_to_builds(platform, 'rootfs', files)
+
+        self.info['builds'] = builds.builds
+
+        return builds.builds
 
 
     def get_platforms_info(self, force_new=False):
@@ -126,11 +320,11 @@ class Buildserver():
         for entry in builders:
             # get only configured platforms
             result = map(
-                lambda x:(x, entry[0]),
-                    filter(
-                        lambda p: p in self.configured_platforms,
-                            entry[1]['schedulers']
-                    )
+                lambda x: (x, entry[0]),
+                filter(
+                    lambda p: p in self.configured_platforms,
+                    entry[1]['schedulers']
+                )
             )
 
             platforms.extend(result)
@@ -175,7 +369,7 @@ class Buildserver():
 
         :param info: json data for a specific builder
         '''
-        retVal = (info['basedir'], {'builds': [], 'schedulers': []})
+        retVal = (info['basedir'], {'last_build': None, 'schedulers': []})
 
         for entry in info['schedulers']:
             splited_string = entry.split(' / ')
@@ -184,11 +378,16 @@ class Buildserver():
                     scheduler = splited_string[2].split(': ')[1].strip('\'').strip('.*')
                     if scheduler in self.valid_platforms:
                         retVal[1]['schedulers'].append(scheduler)
-                    
+                elif splited_string[0] == 'rootfs':
+                    scheduler = splited_string[1].split(': ')[1]
+                    retVal[1]['schedulers'].append(scheduler)
+
         if retVal[1]['schedulers']:
             arch = retVal[0]
-            json_path = 'json/builders/{}/builds/_all'.format(arch)
-            retVal[1]['builds'] = self.__get_json_data(json_path).keys()
+            # get number of last build
+            json_path = 'json/builders/{}/builds/-1'.format(arch)
+            json_data = self.__get_json_data(json_path)
+            retVal[1]['last_build'] = json_data['number']
             return retVal
 
 
@@ -210,7 +409,8 @@ class Buildserver():
         try:
             json_string = r.json()
         except Exception as e:
-            raise BuildserverConnectionError('Can\'t get json data from server.' + Fore.RED + ' Info: {}'.format(e.message))
+            raise BuildserverConnectionError(
+                'Can\'t get json data from server.' + Fore.RED + ' Info: {}'.format(e.message))
 
         return json_string
 
@@ -241,3 +441,78 @@ class Buildserver():
             raise BuildserverConnectionError('Connection timed out.\n' + Fore.RED + 'Info: {}'.format(e.message))
         finally:
             return retVal
+
+
+class LocalBuildsError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return repr(self.message)
+
+
+class LocalBuilds():
+    def __init__(self, path, configured_platforms):
+        '''
+        Interface for all builds at a given path.
+
+        :param path: Local path where product builds are .
+        '''
+        path = path.rstrip('/')
+
+        self.path = path
+
+        self.configured_platforms = configured_platforms
+
+        if not os.path.isdir(path):
+            raise LocalBuildsError('Local directory "{}" does not exist.'.format(path))
+
+        log.debug(Fore.GREEN + 'Local directory path "{}" is valid.'.format(self.path))
+
+
+    def get_builds_info(self, wanted_products, wanted_platform=None, force_new=False):
+        # TODO: adapt to directory structure of buildbot server
+        import json
+
+        products = filter(lambda f: f in ['linux', 'misc', 'uboot'], next(os.walk(self.path))[1])
+        rootfs = filter(lambda f: f in ['rootfs'], next(os.walk(self.path))[1])
+
+        builds = OrderedDict()
+
+        local_platform_info = json.load(open('{}/.platforms'.format(self.path)))
+
+        for product in products:
+            platforms = filter(lambda f: '.' not in f[0] and f in self.configured_platforms,
+                               next(os.walk('{}/{}'.format(self.path, product)))[1])
+
+            for platform in platforms:
+                files = filter(lambda f: '.' not in f[0],
+                               next(os.walk('{}/{}/{}'.format(self.path, product, platform)))[2])
+                if builds.get(platform):
+                    if builds[platform].get(product):
+                        builds[platform][product].extend(files)
+                    else:
+                        builds[platform].update({product: files})
+                else:
+                    builds.update(
+                        {platform: OrderedDict({product: files})}
+                    )
+
+        for r in rootfs:
+            archs = filter(lambda f: f in local_platform_info,
+                           next(os.walk('{}/{}'.format(self.path, r)))[1])
+
+            for arch in archs:
+                platforms = local_platform_info[arch]
+                files = filter(lambda f: '.' not in f[0], os.walk('{}/{}/{}'.format(self.path, r, arch)))
+
+                for platform in platforms:
+                    if builds.get(platform):
+                        if builds[platform].get(r):
+                            builds[platform][r].extend(files)
+                    else:
+                        builds[platform].update({r: files})
+                else:
+                    builds.update(
+                        {platform: OrderedDict({r: files})}
+                    )
