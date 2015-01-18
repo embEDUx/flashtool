@@ -39,7 +39,7 @@ class Flashtool():
     __flashtool_conf = {
         'Config': ['server'],
         'Buildbot': ['server', 'port'],
-        'Local': ['components', 'sources'],
+        'Local': ['products'],
     }
 
     platform_cfg = 'platforms'
@@ -92,46 +92,47 @@ class Flashtool():
 
         # list_builds
         list_builds_parser = subparser.add_parser('list_builds', help='List built files')
-        list_builds_parser.add_argument('--platform', metavar='platform', nargs='?', const='all', required=True)
+        list_builds_parser.add_argument('platform', metavar='platform', nargs='?')
         list_builds_parser.add_argument('--limit', metavar='N', help='Print top N entries')
-        list_builds_parser.add_argument('where', choices=['local', 'remote'])
+        list_builds_parser.add_argument('-w', '--where', choices=['local', 'remote'], default='remote')
 
-        components_group = list_builds_parser.add_argument_group('Components (optional)',
-                                                                 description='Select components which should be listed. If none '
-                                                                             'is selected, all components for the platform will '
+        products_group = list_builds_parser.add_argument_group('Products (optional)',
+                                                                 description='Select products which should be listed. If none '
+                                                                             'is selected, all products for the platform will '
                                                                              'be displayed.')
 
-        components_group.add_argument('-l', '--linux', action='store_true',
+        products_group.add_argument('-l', '--linux', action='store_true',
                                       help='List all linux kernel versions for platform.')
-        components_group.add_argument('-u', '--uboot', action='store_true',
+        products_group.add_argument('-u', '--uboot', action='store_true',
                                       help='List all uboot names for platform.')
-        components_group.add_argument('-r', '--rootfs', action='store_true',
+        products_group.add_argument('-r', '--rootfs', action='store_true',
                                       help='List all rootfs for platform.')
-        components_group.add_argument('-m', '--misc', action='store_true',
+        products_group.add_argument('-m', '--misc', action='store_true',
                                       help='List all misc files for platform.')
 
         list_builds_parser.set_defaults(func=self.__list_builds)
 
         # setup
-        setup_parser = subparser.add_parser('setup', help='Setup a setup with specified component')
+        setup_parser = subparser.add_parser('setup', help='Setup a platform with specified products or all required '
+                                                          'latest products')
 
         setup_group_general = setup_parser.add_argument_group('General options')
 
         setup_group_general.add_argument('-s', '--source', choices=['local', 'remote'], default='remote', nargs='?',
-                                         help='Select if components should be fetched from a local directory or from '
+                                         help='Select if product should be fetched from a local directory or from '
                                               'the buildbot build server. The path or URL to the local directory or '
                                               'server must be defined in the configuration file \'flashtool.cfg\'.')
 
         setup_group_general.add_argument('-a', '--auto', action='store_true', default=False,
-                                         help='If an argument for a component matches for multiple files, the system '
-                                              'will fetch the latest file of a component in lexicographical order. '
+                                         help='If an argument for a product matches for multiple files, the system '
+                                              'will fetch the latest file of a product in lexicographical order. '
                                               'Otherwise the user will be prompted to select a specific file.')
 
-        setup_group1 = setup_parser.add_argument_group('Component Group 1 [linux, uboot, misc]',
-                                                       description='If no component options are given, flashtool will '
-                                                                   'fetch the latest file of a component in '
+        setup_group1 = setup_parser.add_argument_group('Product Group 1 [linux, uboot, misc]',
+                                                       description='If no product options are given, flashtool will '
+                                                                   'fetch the latest file of a product in '
                                                                    'lexicographical order. The argument of an option '
-                                                                   'will be interpreted as regex *{string}*. If this '
+                                                                   'will be interpreted as regex .*{string}.*. If this '
                                                                    'string matches for multiple will handle this '
                                                                    'situation dependent to the -a/--auto flag '
                                                                    '(see description above).')
@@ -143,7 +144,7 @@ class Flashtool():
         setup_group1.add_argument('-m', '--misc', metavar='version', required=False,
                                   help='Setup misc files.')
 
-        setup_group2 = setup_parser.add_argument_group('Component Group 2 [rootfs]',
+        setup_group2 = setup_parser.add_argument_group('Product Group 2 [rootfs]',
                                                        description='If no rootfs is specified the system will choose a '
                                                                    'factory rootfs for the platform if exist. Otherwise '
                                                                    'the user will be prompted to choose a specific '
@@ -168,11 +169,15 @@ class Flashtool():
         self.__configure(args.working_dir)
 
         if args.func == self.__setup:
-            # user must state all components or none of them
-            if not (args.linux and args.uboot and args.misc) \
-                    and (args.linux or args.uboot or args.misc):
-                parser.error('Setup command needs either all three components to be stated (linux, uboot, misc) or '
+            # user must state all products or none of them
+            if not (args.linux and args.uboot) \
+                    and (args.linux or args.uboot):
+                parser.error('Setup command needs either all three products to be stated (linux, uboot, misc) or '
                              'none of them.')
+
+            if args.source == 'local' and not (args.linux and args.uboot and args.rootfs):
+                parser.error('Setup: All four products must be stated (linux, uboot, misc, rootfs) when option '
+                             'source has value "local".')
 
         args.func(args)
 
@@ -200,28 +205,49 @@ class Flashtool():
 
     def __list_builds(self, args):
         actions = self.__get_args(args, ['linux', 'uboot', 'misc', 'rootfs'])
-        action_values = []
-
-        for action in actions:
-            action_values.append((action, getattr(args, action)))
+        action_values = [a for a in actions if getattr(args, a)]
 
         if not action_values:
-            action_values = [('linux', True),
-                             ('uboot', True),
-                             ('rootfs', True),
-                             ('misc', True)]
+            action_values = ['linux', 'uboot', 'rootfs', 'misc']
+
 
         buildbot = Buildserver(self.__conf['Buildbot']['server'], self.__conf['Buildbot']['port'],
                                self.__get_platforms())
 
-        print(action_values)
+        build_info = buildbot.get_builds_info(True)
+        builds = buildbot.get_build_info(build_info, action_values, args.platform)
+
+
+        for k,v in builds.items():
+            print(Fore.YELLOW + '  +-{}-+'.format('-'*len(k)))
+            print(Fore.YELLOW + '  | {} |'.format(k))
+            print(Fore.YELLOW + '  +-{}-+'.format('-'*len(k)))
+            print()
+            for kk,vv in v.items():
+                print(Style.BRIGHT + '  {}:'.format(kk))
+                if kk == 'rootfs':
+                    for rfs, files in vv:
+                        print('    {}:'.format(rfs))
+                        for file in files:
+                            print('      {}'.format(file))
+                else:
+                    files = sorted(set((f[:f.rfind('_')] for f in vv)))
+
+                    for file in files:
+                        types = list((f[f.rfind('_'):] for f in vv if file in f))
+                        if len(types) > 1:
+                            print('    {} (file types: {})'.format(file, ' | '.join(types)))
+                        elif len(types) == 1:
+                            print('    {}{}'.format(file, types[0]))
+
+                    print('')
 
 
     def __setup(self, args):
         action_values = self.__get_args(args, ['linux', 'uboot', 'misc', 'rootfs'])
 
-        log.debug('Setup following components ' + Fore.YELLOW + '{} '
-                  .format(', '.join([k + ':' + v for k, v in action_values.iteritems()]))
+        log.debug('Setup following products ' + Fore.YELLOW + '{} '
+                  .format(', '.join([k + ':' + v for k, v in action_values.items()]))
                   + Fore.RESET + 'for ' + Fore.YELLOW + '{} (source = {}, auto = {})'
                   .format(args.platform, args.source, args.auto)
         )
@@ -251,11 +277,11 @@ class Flashtool():
         yaml_path = '{}/{}/{}.yml'.format(args.working_dir, self.platform_cfg, args.platform)
 
         if args.source == 'local':
-            url = {'dir': self.__conf['Local']['components']}
+            url = {'dir': self.__conf['Local']['products']}
         else:
-            url = {'url': '{}:{}'.format(self.__conf['Buildbot']['server'], self.__conf['Buildbot']['port'])}
+            url = self.__conf['Buildbot']
 
-        setup = Setup(yaml_path, url, action_values)
+        setup = Setup(url, action_values, yaml_path, args.auto, args.platform)
         setup.setup()
 
 
@@ -275,7 +301,7 @@ class Flashtool():
         yml_files = filter(lambda file: re.match('.*\.yml$', file) and file != 'template.yml', files)
         platforms = map(lambda yml_file: yml_file.rstrip('.yml'), yml_files)
 
-        return platforms
+        return list(platforms)
 
 
     def __cfg_platform(self, args):
