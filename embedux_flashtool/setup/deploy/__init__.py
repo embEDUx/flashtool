@@ -13,21 +13,14 @@ class Deploy():
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def run(self):
+    def __init__(self, recipe, actions, builds, platform, auto):
         pass
 
-
-class Load():
-    __metaclass__ = abc.ABCMeta
-
-
-class Prepare():
-    __metaclass__ = abc.ABCMeta
-
-    @abc.abstractstaticmethod
-    def get_device(self):
+    @abc.abstractmethod
+    def prepare(self):
         pass
 
-    @abc.abstractstaticmethod
-    def get_load_info(self):
+    @abc.abstractmethod
+    def load(self):
         pass
+

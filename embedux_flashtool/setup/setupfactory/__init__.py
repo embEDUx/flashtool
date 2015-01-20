@@ -23,13 +23,10 @@ def _import_deployment_module(name):
 
     try:
         imp = importlib.import_module(path + python_name)
-        prepare, load = imp.__classes__
+        deploy = imp.__entry__
 
-        if not issubclass(prepare, Deploy):
+        if not issubclass(deploy, Deploy):
             raise DeployImportException('Class {} of deploy module "{}" must inherit from class "Deploy"!'.format(prepare, python_name))
-
-        if not issubclass(load, Deploy):
-            raise DeployImportException('Class {} of deploy module "{}" must inherit from class "Deploy"!'.format(load, python_name))
 
     except AttributeError as e:
         raise DeployImportException('Deploy module "{}" must define the attribute __classes__'.format(python_name))
@@ -38,4 +35,4 @@ def _import_deployment_module(name):
     except TypeError as e:
         raise DeployImportException('Value of "{}.__classes__" must be a tuple!'.format(path + python_name))
 
-    return prepare, load
+    return deploy

@@ -27,33 +27,11 @@ class Setup():
         self.__url = url
         self.__platform = platform
         self.__auto = auto
-        self.load_info = []
-        self.actions = actions
+        self.__actions = actions
 
         stream = open(recipe_file, 'r')
         documents = yaml.safe_load_all(stream)
         doc_pos = 0
-
-        products_conf = next(documents)
-
-        recipe_type = products_conf.get('type')
-
-        if not recipe_type:
-            raise RecipeContentException(
-                '{}.document({}): does not define attribute "type".'.format(recipe_file, doc_pos))
-
-        if recipe_type != 'ProductsConfig':
-            raise RecipeContentException('First document must be of type "ProductsConfig"')
-
-        recipe_content = products_conf.get('recipe')
-
-        if not recipe_content:
-            raise RecipeContentException(
-                '{}.document({}): does not define attribute "recipe".'.format(recipe_file, doc_pos))
-
-        recipe_class = _import_recipe_class(recipe_type)
-
-        self.products_conf = recipe_class(recipe_content)
 
         self.__setup_chain = []
 
@@ -71,88 +49,20 @@ class Setup():
             recipe_class = _import_recipe_class(recipe_type)
             recipe_obj = recipe_class(recipe_content)
 
-            prepare, load = get_setup_step(recipe_type)
+            cls = get_setup_step(recipe_type)
 
-            self.__setup_chain.append({
-                'preparation': (prepare, recipe_obj),
-                'load': (load, self.products_conf)
-            })
+            self.__setup_chain.append(cls(recipe_obj, self.__actions, self.builds, platform, self.__auto))
 
             doc_pos += 1
 
 
     def setup(self):
-        self.prepare()
-        self.load()
+        for obj in self.__setup_chain:
+            obj.prepare()
 
-    def prepare(self):
-        '''
-        Executes all preparation steps which are declared in the member variable
-        __setup_chain
-        :return: None
-        '''
-        for s in map(lambda s: s['preparation'], self.__setup_chain):
-            load_info = s[0](s[1]).run()
-            if load_info:
-                self.load_info.append(load_info)
+        for obj in self.__setup_chain:
+            obj.load()
 
-
-    def load(self):
-        '''
-        Executes all load steps which are declared in the member variable
-        __setup_chain
-        :return: None
-        '''
-        if not self.load_info:
-            for s in map(lambda s: s['preparation'], self.__setup_chain):
-                self.load_info.append(s[0].get_load_info(s[0].get_device()[1]))
-
-                if not self.__auto:
-                    answer = util.user_prompt('Do you want to continue?', 'Answer', "YyNn")
-
-                    if re.match("[Nn]", answer):
-                        print(Fore.RED + 'ABORT!')
-                        exit(0)
-
-        for s in zip(map(lambda s: s['load'], self.__setup_chain), self.load_info):
-            load_cls = s[0][0]
-            # filter products info which is for the load_class
-            products_conf = (p for p in s[0][1] if p[1].module in load_cls.__name__)
-            hw_layout = s[1]
-
-            # extract information for loading products to platform
-            load_info = {}
-            for product_name, values in products_conf:
-                device_index = values.device
-                prod = product_name.lower().split('_')
-                product = prod[0]
-
-                if product in self.actions:
-                    name = ''
-                    if len(prod) == 1:
-                        name = product
-                    elif len(prod) == 2:
-                        name = prod[1]
-
-                    if load_info.get(prod[0]):
-                        load_info[prod[0]].update(
-                            {
-                                name: hw_layout[device_index]
-                            }
-                        )
-                    else:
-                        load_info.update({
-                            prod[0]: {
-                                'r_name': self.actions[prod[0]],
-                                name: hw_layout[device_index]
-                            }
-                        })
-            print('')
-
-            load_cls(load_info, self.builds, self.__platform, self.__auto).run()
-
-
-# TODO: check if path is suitable when installed via pip
 def _import_recipe_class(name):
     """import setup recipe class """
     from embedux_flashtool.setup.recipe import Recipe

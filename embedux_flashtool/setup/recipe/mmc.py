@@ -9,7 +9,7 @@ import _ped
 import re
 
 class MMC(Recipe):
-    attr = ['partitions', 'partition_table']
+    attr = ['partitions', 'partition_table', 'load']
 
     def __init__(self, attributes):
         self.check_attributes(attributes)
@@ -18,21 +18,17 @@ class MMC(Recipe):
         for elem in attributes['partitions']:
             part = Partition(elem)
             if part.size == max:
-                if has_max_size:
-                    raise RecipeContentException('Only one partition can set the max flag for size.')
+                if attributes['partitions'].index(elem) != len(attributes['partitions']) - 1:
+                    raise RecipeContentException('Only the last partition can state the max flag for size.')
                 has_max_size = True
 
             parts.append(part)
 
-        # Only the last partition is allowed to state the max flag for the size
-        if has_max_size:
-            if parts[-1].size != max:
-                raise RecipeContentException('Only the last partition can state the max flag for size.')
-
         attributes['partitions'] = parts
+        attributes['load'] = Load(attributes)
         self.check_attributes(attributes)
+        self.__check_partition_table(attributes['partition_table'])
         Recipe.__init__(self, attributes)
-        self.__check_partition_table(self.partition_table)
 
 
     def __check_partition_table(self, part_table):
@@ -100,5 +96,31 @@ class Partition(Recipe):
             raise RecipeContentException(
                 'Partition size is not valid. Given value: "{}", Allowed: #num( ,%,kb,mb,gb,tb)'.format(string))
 
+
+class Load(Recipe):
+    attr = ['Rootfs', 'Linux_Root', 'Linux_Boot', 'Linux_Config', 'Uboot', 'Misc_Root', 'Misc_Boot']
+
+    def __init__(self, attributes):
+        self.check_attributes(attributes)
+
+        new_attributes = {}
+        for k,v in attributes.items():
+            if v:
+                new_attributes[k] = Product(k, v)
+
+class Product():
+    def __init__(self, name, attributes):
+        self.name = name
+        self.device = None
+        self.command = None
+
+        if attributes.get('device'):
+            self.device = attributes['device']
+
+        if attributes.get('command'):
+            self.command = attributes['command']
+
+        if self.device and self.command:
+            raise RecipeContentException('Load config: Product {} config must only state one attribute.'.format(name))
 
 __entry__ = MMC
