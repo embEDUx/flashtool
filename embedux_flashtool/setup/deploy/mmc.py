@@ -299,6 +299,7 @@ class MMCDeploy(Deploy):
                         print('')
 
         def rollback():
+            print(Fore.YELLOW + '   Syncing devices...')
             subprocess.call('sync')
             try:
                 umount()

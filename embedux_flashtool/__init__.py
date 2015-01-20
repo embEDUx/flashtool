@@ -282,6 +282,9 @@ class Flashtool():
 
         if args.source == 'local':
             url = {'dir': self.__conf['Local']['products']}
+            #TODO: delete statement when implemented
+            print(Fore.RED + 'Option \'-s local\' \'--source local\' is not implemented yet!')
+            exit(1)
         else:
             url = self.__conf['Buildbot']
 

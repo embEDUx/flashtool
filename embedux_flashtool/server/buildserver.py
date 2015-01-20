@@ -461,7 +461,6 @@ class Buildserver():
         finally:
             return retVal
 
-
 class LocalBuildsError(Exception):
     def __init__(self, message):
         self.message = message
@@ -491,12 +490,15 @@ class LocalBuilds():
     def get_builds_info(self, wanted_products, wanted_platform=None, force_new=False):
         # TODO: adapt to directory structure of buildbot server
 
-        products = filter(lambda f: f in ['linux', 'misc', 'uboot'], next(os.walk(self.path))[1])
-        rootfs = filter(lambda f: f in ['rootfs'], next(os.walk(self.path))[1])
-
         builds = OrderedDict()
 
-        local_platform_info = json.load(open('{}/.platforms'.format(self.path)))
+        try:
+            products = filter(lambda f: f in ['linux', 'misc', 'uboot'], next(os.walk(self.path))[1])
+            rootfs = filter(lambda f: f in ['rootfs'], next(os.walk(self.path))[1])
+            local_platform_info = json.load(open('{}/.platforms'.format(self.path)))
+        except:
+            print('An error occured while retrieving file from {}/.platforms'.format(self.path))
+            raise
 
         for product in products:
             platforms = filter(lambda f: '.' not in f[0] and f in self.configured_platforms,
@@ -516,20 +518,5 @@ class LocalBuilds():
                     )
 
         for r in rootfs:
-            archs = filter(lambda f: f in local_platform_info,
-                           next(os.walk('{}/{}'.format(self.path, r)))[1])
-
-            for arch in archs:
-                platforms = local_platform_info[arch]
-                files = filter(lambda f: '.' not in f[0], os.walk('{}/{}/{}'.format(self.path, r, arch)))
-
-                for platform in platforms:
-                    if builds.get(platform):
-                        if builds[platform].get(r):
-                            builds[platform][r].extend(files)
-                    else:
-                        builds[platform].update({r: files})
-                else:
-                    builds.update(
-                        {platform: OrderedDict({r: files})}
-                    )
+            #TODO: go through directory structur
+            pass
