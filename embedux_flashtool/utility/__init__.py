@@ -1,8 +1,6 @@
 from __future__ import unicode_literals
 __author__ = 'mahieke'
 
-from embedux_flashtool.utility.unpack_helper import get_command
-
 import re
 import sys
 import logging as log
