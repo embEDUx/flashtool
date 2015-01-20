@@ -12,7 +12,7 @@ import embedux_flashtool.utility as util
 _word = '[a-zA-Z]|[0-9]|[-_.]'
 
 class Git():
-    def __init__(self, url, dest, name, branch = 'Master'):
+    def __init__(self, url, dest, name, branch = 'master'):
         #Check if software is installed
         if not util.shutil_which('git'):
             raise ReferenceError('You must install "git" to get access to the specified server')
