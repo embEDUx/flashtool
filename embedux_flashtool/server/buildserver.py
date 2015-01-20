@@ -5,11 +5,12 @@ from requests.exceptions import *
 from colorama import Fore
 import logging as log
 from collections import OrderedDict
-from itertools import islice
 import os
 import re
 import sys
 from urllib.request import urlretrieve
+from urllib.request import urlopen
+import json
 
 import embedux_flashtool.utility as util
 
@@ -31,7 +32,7 @@ class BuildserverPackageError(Exception):
 
 
 class Buildserver():
-    def __init__(self, address, port, configured_platforms):
+    def __init__(self, address, port, configured_platforms, dest=None):
         '''
         Interface for a buildbot build server. This class provides methods to get information
         about the builds on the server.
@@ -64,8 +65,20 @@ class Buildserver():
 
         self.loaded_files = []
 
+        self.dest = dest
 
-    def get_files(self, files, dest=None):
+        if dest:
+            self.json_file = '{}/.platforms'.format(self.dest)
+            if not os.path.exists(self.json_file):
+                open(self.json_file, 'a').close()
+
+            if os.path.getsize(self.json_file) > 0:
+                self.local_platform_info = json.load(open(self.json_file))
+            else:
+                self.local_platform_info = {}
+
+
+    def get_file(self, file_path):
         '''
         Downloads files from the buildserver to the local destination. If dest is None the default path
         will be at /tmp.
@@ -78,13 +91,13 @@ class Buildserver():
             percentage = (min(100, float(blocknum * blocksize) / totalsize * 100))
 
             if 1023 < totalsize < 1024 * 1024:
-                size = float(1.0 / 1024.0) * float(totalsize)
-                print('    {:3.1f}% of {:.4f} kBytes'.format(percentage, size), end='\r'),
+                size = float(totalsize/1024.0)
+                print('     {:3.1f}% of {:5.4f} kBytes'.format(percentage, size), end='\r'),
             elif 1024 * 1024 < totalsize:
-                size = float(1.0 / 1024.0 * 1024.0) * float(totalsize)
-                print('    {:3.1f}% of {:.4f} MBytes'.format(percentage, size), end='\r'),
+                size = float(totalsize / (1024.0 * 1024.0))
+                print('     {:3.1f}% of {:5.4f} MBytes'.format(percentage, size), end='\r'),
             else:
-                print('    {:3.1f}% of {:.4f} Bytes'.format(percentage, totalsize), end='\r'),
+                print('     {:3.1f}% of {} Bytes'.format(percentage, totalsize), end='\r'),
 
             sys.stdout.flush()
 
@@ -92,46 +105,47 @@ class Buildserver():
             return os.path.isfile(file_name)
 
         ret_val = []
-        if not dest:
+        if not self.dest:
             dest = '/tmp/flashtool'
         else:
-            dest = dest.rstrip('/')
+            dest = self.dest.rstrip('/')
 
-        downloaded = []
-        for product, f_info in files:
-            for item in f_info:
-                url = '{}/{}'.format(self.url, item[1])
-                file_name = item[1].split('/')[-1]
-                dest_name = '{}/{}'.format(dest, product)
-                dest_file = '{}/{}'.format(dest_name, file_name)
+        url = '{}/{}'.format(self.url, file_path)
+        file_name = file_path.split('/')[-1]
+        product = file_path.split('/')[0]
+        dest_name = '{}/{}'.format(dest, '/'.join(file_path.split('/')[:-1]))
+        dest_file = '{}/{}'.format(dest_name, file_name)
 
-                if not os.path.isdir(dest_name):
-                    os.makedirs(dest_name)
+        if not os.path.isdir(dest_name):
+            os.makedirs(dest_name)
 
-                if not file_exists(dest_file):
-                    downloaded.append(dest_file)
-                    print('   DOWNLOAD FILE:\n'
-                          '   URL:  {}\n'
-                          '   DEST: {}'.format(url, file_name))
-                    try:
-                        urlretrieve(url, dest_file, reporthook)
-                    except KeyboardInterrupt:
-                        print(Fore.YELLOW + '   User aborted download')
-                        os.remove(dest_file)
-                        raise
-                    except Exception as e:
-                        print(Fore.RED + '   An Error occured while downloading.')
-                        print(Fore.RED + '   {}'.format(repr(e)))
-                        os.remove(dest_file)
-                        raise
+        if not file_exists(dest_file):
+            print('    DOWNLOAD FILE:\n'
+                  '    URL:  {}\n'
+                  '    FILE: {}\n'.format(url, file_name))
+            try:
+                urlretrieve(url, dest_file, reporthook)
+            except KeyboardInterrupt:
+                print(Fore.YELLOW + '   User aborted download')
+                os.remove(dest_file)
+                raise
+            except Exception as e:
+                print(Fore.RED + '   An Error occured while downloading.')
+                print(Fore.RED + '   {}'.format(repr(e)))
+                os.remove(dest_file)
+                raise
 
-                else:
-                    print(Fore.YELLOW + '   FILE {} WAS ALREADY DOWNLOADED:'.format(file_name))
+        else:
+            print(Fore.YELLOW + '   FILE {} WAS ALREADY DOWNLOADED:'.format(file_name))
 
-                ret_val.append((item[0], dest_file, os.stat(dest_file).st_size))
 
-        return ret_val
+        return dest_file, os.stat(dest_file).st_size
 
+    def get_file_size(self, file):
+        url = '{}/{}'.format(self.url, file)
+        meta = dict(urlopen(url).info())
+
+        return meta["Content-Length"]
 
     def get_files_path(self, file_info, reg_name, file_types, auto):
         '''
@@ -144,8 +158,6 @@ class Buildserver():
         '''
         for platform, products_info in file_info.items():
             for product, unsorted_files in products_info.items():
-                print('{}:'.format(product.upper()))
-
                 if product == 'rootfs':
                     files = ['rootfs/{}/{}'.format(e[0], ee) for e in unsorted_files for ee in e[1]]
                 else:
@@ -216,7 +228,6 @@ class Buildserver():
 
         return ret_val
 
-
     def get_builds_info(self, force_new=False):
         '''
         Get all built software.
@@ -226,18 +237,24 @@ class Buildserver():
             json_path = 'json/builders/{}/builds/{}'.format(buildername, build_num)
             return self.__get_json_data(json_path)
 
+        def get_from_flatten_list(flatten_list, what):
+            for item in flatten_list:
+                if item == what:
+                    return flatten_list[flatten_list.index(item) + 1]
+
         class builds_info_helper():
             def __init__(self):
                 self.builds = OrderedDict()
 
             def append_to_builds(self, platform, product, files):
-                if self.builds.get(platform):
-                    if self.builds[platform].get(product):
-                        self.builds[platform][product].extend(files)
+                if platform and product and files:
+                    if self.builds.get(platform):
+                        if self.builds[platform].get(product):
+                            self.builds[platform][product].extend(files)
+                        else:
+                            self.builds[platform].update({product: files})
                     else:
-                        self.builds[platform].update({product: files})
-                else:
-                    self.builds.update({platform: OrderedDict({product: files})})
+                        self.builds.update({platform: OrderedDict({product: files})})
 
         platforms = self.info['platforms']
 
@@ -262,14 +279,14 @@ class Buildserver():
                     builds_info = get_json(buildername, build_num)
 
                     # only deal with build which are built succesfully
-                    if builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
+                    if builds_info.get('text') and builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
                         # flatten properties to a list with strings
-                        props = (x for y in builds_info['properties'] for x in y)
-                        platform = next((next(props) for item in props if item == 'platform'))
+                        props = [x for y in builds_info['properties'] for x in y]
+                        platform = get_from_flatten_list(props, 'platform')
 
                         if platform in self.valid_platforms:
-                            product = next((next(props) for item in props if item == 'product'))
-                            files = next((next(props) for item in props if item == 'upload_files'))
+                            product = get_from_flatten_list(props, 'product')
+                            files = get_from_flatten_list(props, 'upload_files')
 
                             builds.append_to_builds(platform, product, files)
 
@@ -283,20 +300,20 @@ class Buildserver():
                     builds_info = get_json(buildername, build_num)
 
                     # only deal with build which are built succesfully
-                    if builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
+                    if builds_info.get('text') and builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
                         # flatten properties to a list with strings
-                        props = (x for y in builds_info['properties'] for x in y)
-                        rootfs_name = next((next(props) for item in props if item == 'platform'))
-                        files = next((next(props) for item in props if item == 'upload_files'))
-                        files = list(map(lambda x: (rootfs_name, files), files))
+                        props = [x for y in builds_info['properties'] for x in y]
+                        rootfs_name = get_from_flatten_list(props, 'platform')
+                        files = get_from_flatten_list(props,  'upload_files')
+                        if files:
+                            files = list(map(lambda x: (rootfs_name, files), files))
 
-                        for platform in (x[0] for x in platforms if x[1] == arch):
-                            builds.append_to_builds(platform, 'rootfs', files)
+                            for platform in (x[0] for x in platforms if x[1] == arch):
+                                builds.append_to_builds(platform, 'rootfs', files)
 
         self.info['builds'] = builds.builds
 
         return builds.builds
-
 
     def get_platforms_info(self, force_new=False):
         '''
@@ -331,8 +348,14 @@ class Buildserver():
 
         self.info['platforms'] = platforms
 
-        return platforms
+        if self.dest:
+            for arch, platform in platforms:
+                if not self.local_platform_info.get(platform):
+                    self.local_platform_info[platform] = arch
 
+            json.dump(self.local_platform_info, open(self.json_file, 'w'))
+
+        return platforms
 
     def get_builders_info(self, force_new=False):
         '''
@@ -354,14 +377,12 @@ class Buildserver():
 
             return builders
 
-
     def __get_root_info(self):
         '''
         Returns JSON data from buildserver from {server-url}/json
         '''
         root_json_path = 'json'
         return self.__get_json_data(root_json_path)
-
 
     def __builder_info(self, info):
         '''
@@ -390,7 +411,6 @@ class Buildserver():
             retVal[1]['last_build'] = json_data['number']
             return retVal
 
-
     def __get_json_data(self, what, opts=[]):
         '''
         Tries to get json data from :attribute url:/:param what: via request call.
@@ -413,7 +433,6 @@ class Buildserver():
                 'Can\'t get json data from server.' + Fore.RED + ' Info: {}'.format(e.message))
 
         return json_string
-
 
     def __try_request(self, request, url):
         '''
@@ -450,7 +469,6 @@ class LocalBuildsError(Exception):
     def __str__(self):
         return repr(self.message)
 
-
 class LocalBuilds():
     def __init__(self, path, configured_platforms):
         '''
@@ -472,7 +490,6 @@ class LocalBuilds():
 
     def get_builds_info(self, wanted_products, wanted_platform=None, force_new=False):
         # TODO: adapt to directory structure of buildbot server
-        import json
 
         products = filter(lambda f: f in ['linux', 'misc', 'uboot'], next(os.walk(self.path))[1])
         rootfs = filter(lambda f: f in ['rootfs'], next(os.walk(self.path))[1])

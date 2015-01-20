@@ -1,6 +1,7 @@
 __author__ = 'mahieke'
 
 from embedux_flashtool.setup.recipe import Recipe
+from embedux_flashtool.setup.recipe import Load
 from embedux_flashtool.setup.recipe import RecipeContentException
 import embedux_flashtool.utility as util
 from embedux_flashtool.setup.constants import mkfs_support
@@ -16,16 +17,16 @@ class MMC(Recipe):
         parts = []
         has_max_size = False
         for elem in attributes['partitions']:
-            part = Partition(elem)
-            if part.size == max:
+            if elem['size'] == max:
                 if attributes['partitions'].index(elem) != len(attributes['partitions']) - 1:
                     raise RecipeContentException('Only the last partition can state the max flag for size.')
                 has_max_size = True
 
+            part = Partition(elem)
             parts.append(part)
 
         attributes['partitions'] = parts
-        attributes['load'] = Load(attributes)
+        attributes['load'] = Load(attributes['load'])
         self.check_attributes(attributes)
         self.__check_partition_table(attributes['partition_table'])
         Recipe.__init__(self, attributes)
@@ -50,6 +51,7 @@ class Partition(Recipe):
         Recipe.__init__(self, attributes)
         self.__check_fs_type(self.fs_type)
         self.__check_partition_flag(self.flags)
+
 
     def __check_fs_type(self, fs_type):
         try:
@@ -95,32 +97,5 @@ class Partition(Recipe):
         else:
             raise RecipeContentException(
                 'Partition size is not valid. Given value: "{}", Allowed: #num( ,%,kb,mb,gb,tb)'.format(string))
-
-
-class Load(Recipe):
-    attr = ['Rootfs', 'Linux_Root', 'Linux_Boot', 'Linux_Config', 'Uboot', 'Misc_Root', 'Misc_Boot']
-
-    def __init__(self, attributes):
-        self.check_attributes(attributes)
-
-        new_attributes = {}
-        for k,v in attributes.items():
-            if v:
-                new_attributes[k] = Product(k, v)
-
-class Product():
-    def __init__(self, name, attributes):
-        self.name = name
-        self.device = None
-        self.command = None
-
-        if attributes.get('device'):
-            self.device = attributes['device']
-
-        if attributes.get('command'):
-            self.command = attributes['command']
-
-        if self.device and self.command:
-            raise RecipeContentException('Load config: Product {} config must only state one attribute.'.format(name))
 
 __entry__ = MMC

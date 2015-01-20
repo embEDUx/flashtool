@@ -19,8 +19,6 @@ import hashlib
 import os
 from timeit import default_timer as timer
 import tarfile
-import zipfile
-import shutil
 import signal
 
 class MMCDeploy(Deploy):
@@ -35,8 +33,8 @@ class MMCDeploy(Deploy):
         }
 
         self.platform = platform
-        self.auto = auto
         self.builds = builds
+        self.auto = auto
         self.udev = _get_device()
         self.partition_info = None
 
@@ -47,8 +45,6 @@ class MMCDeploy(Deploy):
 
         # extract information for loading products to platform
         for product_name, values in recipe.load:
-            if values.device:
-                device_index = values.device
 
             prod = product_name.lower().split('_')
             product = prod[0]
@@ -61,16 +57,17 @@ class MMCDeploy(Deploy):
                     name = prod[1]
 
                 reg_name = actions[product]
+                content = {}
 
                 if yaml_info.get(product):
                     yaml_info[product].update({
-                        name: device_index
+                        name: values
                     })
                 else:
                     yaml_info.update({
                         product : {
                             'r_name': reg_name,
-                            name: device_index
+                            name: values
                         }
                     })
 
@@ -91,7 +88,6 @@ class MMCDeploy(Deploy):
                 print(Fore.YELLOW + st.format(s[1]))
 
             print(Fore.YELLOW + '   +-{}-+'.format('-'*(12+a)))
-            print('')
 
             files = self.builds.get_files_path(file_info, reg_name, [(product, file_types)], self.auto)[0][1]
 
@@ -99,12 +95,13 @@ class MMCDeploy(Deploy):
             for f_type, file in files:
                 self.load_cfg[product].append({
                     'f_type': f_type,
-                    'device_index': value[f_type],
+                    'yaml': value[f_type],
                     'file': file,
                     'size': int(self.builds.get_file_size(file))
                 })
+            print('')
 
-        sizes = []
+        sizes = [1024*1024]
         for entry in self.recipe['partitions']:
             if entry.size != 'max':
                 sizes.append(int(entry.size))
@@ -114,7 +111,15 @@ class MMCDeploy(Deploy):
         # do file size check
         for product, values in self.load_cfg.items():
             for item in values:
-                sizes[item['device_index']] -= item['size']
+                if item['yaml'].device is not None:
+                    sizes[item['yaml'].device + 1] -= item['size']
+                elif item['yaml'].command is not None:
+                    t_str = item['yaml'].command[1]
+                    num = t_str.split('device')[1][0]
+                    if isinstance(num, int):
+                        sizes[int(num) + 1] -= item['size']
+                    else:
+                        sizes[0] -= item['size']
 
         not_enough_space = False
         i = 0
@@ -166,7 +171,7 @@ class MMCDeploy(Deploy):
         print(Fore.YELLOW + '   Format partitions {}:'.format(', '.join([p['path'] for p in new_partitions])))
         _format(new_partitions)
 
-        self.partition_info = _get_load_info([part.path.strip('/dev/') for part in partitions])
+        self.partition_info = device[0]['path'], _get_load_info([part.path.strip('/dev/') for part in partitions])
 
         print('')
 
@@ -182,10 +187,10 @@ class MMCDeploy(Deploy):
         print('')
 
         if not self.partition_info:
-            self.partition_info = _get_load_info(self.info['udev'][1])
+            self.partition_info = self.udev[0]['path'], _get_load_info(self.info['udev'][1])
 
         # check if existing partitions match with recipe
-        if len(self.partition_info) != len(self.recipe['partitions']):
+        if len(self.partition_info[1]) != len(self.recipe['partitions']):
             print(Fore.RED + 'Number of existing partitions does not meet with recipe configuration.')
             #TODO: raise a Exception
             exit(1)
@@ -223,14 +228,13 @@ class MMCDeploy(Deploy):
                         done = False
                         while(not done):
                             try:
-                                dest, size = self.builds.get_file(f_info['file'])
+                                src, size = self.builds.get_file(f_info['file'])
                             except Exception as e:
                                 print(Fore.YELLOW + '   Error during Download process.')
                                 print(Fore.RED    + '   {}'.format(repr(e)))
                                 answer = util.user_prompt('   Do you want to retry the Download process?', '   Answer', 'YyNn')
                                 if re.match('Y|y', answer):
                                     done = False
-                                    os.remove(dest)
                                 else:
                                     raise
 
@@ -241,30 +245,58 @@ class MMCDeploy(Deploy):
                                 answer = util.user_prompt('   Do you want to retry the Download process?', '   Answer', 'YyNn')
                                 if re.match('Y|y', answer):
                                     done = False
-                                    os.remove(dest)
                                 else:
                                     raise KeyboardInterrupt
 
                         print('')
 
-                        to_mount = self.partition_info[f_info['device_index']]['path']
-                        dest_mount_point = '/tmp/flashtool/{}'.format(to_mount.split('/')[-1])
+                        if f_info['yaml'].device is not None:
+                            to_mount = self.partition_info[1][f_info['yaml'].device]['path']
+                            dest = '/tmp/flashtool/{}'.format(to_mount.split('/')[-1])
 
-                        if not mounted_devs.get(to_mount):
-                            mount(to_mount, dest_mount_point)
-                            mounted_devs.update({
-                                to_mount: dest_mount_point
-                            })
+                            if not mounted_devs.get(to_mount):
+                                mount(to_mount, dest)
+                                mounted_devs.update({
+                                    to_mount: dest
+                                })
 
-                        #load file on partition
-                        if tarfile.is_tarfile(dest):
-                            print('   Extracting tar file {}'.format(dest))
-                            util.untar(dest, dest_mount_point)
-                        elif zipfile.is_zipfile(dest):
-                            print('   Extracting zip file {}'.format(dest))
-                        else:
-                            print('   Copy file {} to mmc'.format(dest))
-                            subprocess.call(['cp', dest, dest_mount_point])
+                            # load file on partition
+                            if tarfile.is_tarfile(src):
+                                print('   Extracting tar file {}'.format(src))
+                                util.untar(src, dest)
+                            else:
+                                print('   Copy file {} to mmc'.format(src))
+                                subprocess.call(['cp', src, dest])
+                        else: # there is a command specified
+                            from string import Template
+                            dest = '/tmp/flashtool'
+                            if tarfile.is_tarfile(src):
+                                tar = tarfile.open(src, 'r')
+                                if len(list(tar.getmembers())) != 1:
+                                    print(Fore.Red + '   Tar file has not exactly one member. Can\'t decide which file should be'
+                                          'loaded via dd command')
+                                    raise Exception('   Requirements were not met.')
+                                file_name = '{}/{}'.format(dest, tar.getmembers()[0].name)
+                                tar.close()
+                                print('   Extracting tar file {}'.format(src))
+                                util.untar(src, dest)
+                            else:
+                                file_name = src
+
+                            t_str = f_info['yaml'].command[1]
+                            num = t_str.split('device')[1][0]
+                            if isinstance(num, int):
+                                dev = self.partition_info[1][int(num)]['path']
+                                t_str = re.sub('device[0-9]+', 'device', f_info['yaml'].command[1])
+                            else:
+                                dev = self.partition_info[0]
+
+                            cmd = [f_info['yaml'].command[0]] + Template(t_str).safe_substitute(file=file_name, device=dev).split()
+                            print('   Execute command: {}'.format(' '.join(cmd)))
+                            subprocess.call(cmd)
+                            os.remove(file_name)
+
+                        print('')
 
         def rollback():
             subprocess.call('sync')
@@ -285,7 +317,7 @@ class MMCDeploy(Deploy):
         except Exception as e:
             print('')
             print(Fore.RED + '   An error occured:')
-            print(Fore.RED + '   {}'.format(repr(e)))
+            print(Fore.RED + '   {}'.format(str(e)))
             rollback()
             raise
 
@@ -533,8 +565,6 @@ def _get_device(auto=False):
             print(Fore.GREEN + 'USER ABORTED SETUP PROCESS')
             #TODO: raise Exception
             exit(0)
-
-
 
     return devices[selection]
 

@@ -25,7 +25,7 @@ class SubprocessCallException(Exception):
     def __str__(self):
         s = self.message
         for line in self.err:
-            s += '\n   {}'.format(line)
+            s += '\n   {}'.format(str(line))
 
         return s
 
@@ -190,7 +190,7 @@ def os_call(command, timeout=None, allow_user_interrupt=True):
     """call shell-command and either return its output or kill it
     if it doesn't normally exit within timeout seconds and raise exception"""
 
-    def warn():
+    def warn(a, b):
         print(Fore.RED + '   Interrupting this procedure is restricted!')
 
     if not allow_user_interrupt:
@@ -291,3 +291,4 @@ def untar(tar, target):
 def get_terminal_size():
     import os
     return os.popen('stty size', 'r').read().split()
+

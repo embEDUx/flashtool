@@ -128,6 +128,10 @@ class Flashtool():
                                               'will fetch the latest file of a product in lexicographical order. '
                                               'Otherwise the user will be prompted to select a specific file.')
 
+        setup_group_general.add_argument('-L', '--Local', action='store_true', default=False,
+                                         help='If this argument is set, all downloaded file will be stored at'
+                                              'the directory which is configured in the cfg file (Attribute Local).')
+
         setup_group1 = setup_parser.add_argument_group('Product Group 1 [linux, uboot, misc]',
                                                        description='If no product options are given, flashtool will '
                                                                    'fetch the latest file of a product in '
@@ -281,7 +285,13 @@ class Flashtool():
         else:
             url = self.__conf['Buildbot']
 
-        setup = Setup(url, action_values, yaml_path, args.auto, args.platform)
+        user_dest = None
+        if args.Local:
+            user_dest = self.__conf['Local']['products']
+            if not os.path.exists(user_dest):
+                os.mkdir(user_dest,mode=0o777)
+
+        setup = Setup(url, action_values, yaml_path, args.auto, args.platform, user_dest)
         setup.setup()
 
 

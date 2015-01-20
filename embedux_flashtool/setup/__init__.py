@@ -16,18 +16,13 @@ class Setup():
     Setup procedure for a platform.
     '''
 
-    def __init__(self, url, actions, recipe_file, auto, platform):
+    def __init__(self, url, actions, recipe_file, auto, platform, user_dest=None):
         # get existing builds from local directory or
         if url.get('dir'):
             self.builds = LocalBuilds(url['dir'], platform)
         else:
             # buildserver
-            self.builds = Buildserver(url['server'], url['port'], platform)
-
-        self.__url = url
-        self.__platform = platform
-        self.__auto = auto
-        self.__actions = actions
+            self.builds = Buildserver(url['server'], url['port'], platform, user_dest)
 
         stream = open(recipe_file, 'r')
         documents = yaml.safe_load_all(stream)
@@ -51,7 +46,7 @@ class Setup():
 
             cls = get_setup_step(recipe_type)
 
-            self.__setup_chain.append(cls(recipe_obj, self.__actions, self.builds, platform, self.__auto))
+            self.__setup_chain.append(cls(recipe_obj, actions, self.builds, platform, auto))
 
             doc_pos += 1
 
