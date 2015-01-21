@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-name = "embedux_flashtool"
+name = "flashtool"
 
 
 def get_version(relpath="__init__.py"):
@@ -38,9 +38,6 @@ setup(
         'PyYAML>=3.11',
         'pyparted',
         'configparser'
-    ],
-    dependency_links=[
-        "git+https://github.com/rhinstaller/pyparted.git@pyparted-3.10.2#egg=pyparted"
     ],
     classifiers=[
         'Environment :: Console',
