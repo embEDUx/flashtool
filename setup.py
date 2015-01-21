@@ -32,12 +32,15 @@ setup(
         ]
     },
     install_requires=[
-        'colorama',
-        'pyudev',
-        'argcomplete',
-        'sh',
-        'PyYAML',
+        'colorama>=0.3.2',
+        'pyudev>=0.16.1',
+        'argcomplete>=0.8.3',
+        'PyYAML>=3.11',
+        'pyparted',
         'configparser'
+    ],
+    dependency_links=[
+        "git+https://github.com/rhinstaller/pyparted.git@pyparted-3.10.2#egg=pyparted"
     ],
     classifiers=[
         'Environment :: Console',
