@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-name = "flashtool"
+name = "embedux_flashtool"
 
 
 def get_version(relpath="__init__.py"):
