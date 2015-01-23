@@ -243,7 +243,8 @@ def untar(tar, target):
             print('   untar file: [{:10}]'.format(' '*10), end='\r')
             for member in self.members:
                 if self.badpath(member.name, base):
-                    member.name = '.{}'.format(member.name)
+                    print(Fore.YELLOW + '   BAD PATH DETECTED. {}'.format(member.name))
+                    continue
 
                 # this will be the current file being extracted
                 self.count += 1

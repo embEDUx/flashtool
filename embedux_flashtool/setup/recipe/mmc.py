@@ -25,6 +25,8 @@ class MMC(Recipe):
             part = Partition(elem)
             parts.append(part)
 
+        # TODO: check if every name of a partition is unique
+
         attributes['partitions'] = parts
         attributes['load'] = Load(attributes['load'])
         self.check_attributes(attributes)
@@ -49,6 +51,9 @@ class Partition(Recipe):
         attributes['name'] = attributes['name'].upper()
 
         Recipe.__init__(self, attributes)
+
+        #TODO: check if name is set: must be set
+
         self.__check_fs_type(self.fs_type)
         self.__check_partition_flag(self.flags)
 

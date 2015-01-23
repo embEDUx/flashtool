@@ -7,6 +7,8 @@ import embedux_flashtool.setup.udev.mmc as udev
 from embedux_flashtool.setup.deploy import Deploy
 import embedux_flashtool.utility as util
 from embedux_flashtool.setup.constants import mkfs_support
+from embedux_flashtool.setup.deploy.templateloader import fstab_info
+from embedux_flashtool.setup.deploy.templateloader import generate_fstab
 
 import re
 from colorama import Fore
@@ -35,10 +37,11 @@ class MMCDeploy(Deploy):
         self.platform = platform
         self.builds = builds
         self.auto = auto
-        self.udev = _get_device()
-        self.partition_info = None
+        self.__udev = _get_device()
+        self.__partition_info = None
+        self.__mounted_devs = {}
 
-        util.check_permissions(self.udev[0]['path'])
+        util.check_permissions(self.__udev[0]['path'])
         build_info = self.builds.get_builds_info()
         yaml_info = {}
         self.load_cfg = {}
@@ -106,7 +109,7 @@ class MMCDeploy(Deploy):
             if entry.size != 'max':
                 sizes.append(int(entry.size))
             else:
-                sizes.append(int(self.udev[0]['size']) - sum(sizes))
+                sizes.append(int(self.__udev[0]['size']) - sum(sizes))
 
         # do file size check
         for product, values in self.load_cfg.items():
@@ -133,6 +136,7 @@ class MMCDeploy(Deploy):
             #TODO: raise an exception
             exit(0)
 
+
     def prepare(self):
         '''
         Method will prepare the mmc device by following the recipe.
@@ -144,7 +148,7 @@ class MMCDeploy(Deploy):
         print(Fore.YELLOW + '   +-{}-+'.format('-'*(11)))
         print('')
 
-        device = self.udev
+        device = self.__udev
 
         print('New Layout: ')
         i = 1
@@ -171,7 +175,7 @@ class MMCDeploy(Deploy):
         print(Fore.YELLOW + '   Format partitions {}:'.format(', '.join([p['path'] for p in new_partitions])))
         _format(new_partitions)
 
-        self.partition_info = device[0]['path'], _get_load_info([part.path.strip('/dev/') for part in partitions])
+        self.__partition_info = device[0]['path'], _get_load_info([part.path for part in partitions])
 
         print('')
 
@@ -181,153 +185,184 @@ class MMCDeploy(Deploy):
         the files to the partitions of the mmc-device
         :return:
         '''
-        print(Fore.YELLOW + '   +-{}-+'.format('-'*(17)))
+        print(Fore.YELLOW + '   +-{}-+'.format('-'*17))
         print(Fore.YELLOW + '   | {} |'.format('LOAD FILES ON MMC'))
-        print(Fore.YELLOW + '   +-{}-+'.format('-'*(17)))
+        print(Fore.YELLOW + '   +-{}-+'.format('-'*17))
         print('')
 
-        if not self.partition_info:
-            self.partition_info = self.udev[0]['path'], _get_load_info(self.info['udev'][1])
+        if not self.__partition_info:
+            self.__partition_info = self.__udev[0]['path'], _get_load_info([part['path'] for part in self.__udev[1]])
 
         # check if existing partitions match with recipe
-        if len(self.partition_info[1]) != len(self.recipe['partitions']):
+        if len(self.__partition_info[1]) != len(self.recipe['partitions']):
             print(Fore.RED + 'Number of existing partitions does not meet with recipe configuration.')
             #TODO: raise a Exception
             exit(1)
 
-        def mount(to_mount, dest_mount_point):
-            # if device is not mounted, mount it
-            try:
-                os.makedirs(dest_mount_point)
-            except OSError as e:
-                pass
-            print('   Mount {} to {}'.format(to_mount, dest_mount_point))
-            util.os_call(['mount', to_mount, dest_mount_point], timeout=3)
-
-        def umount():
-            if mounted_devs:
-                for k,v in mounted_devs.items():
-                    print('   Umount {}'.format(k))
-                    try:
-                        util.os_call(['umount', k], allow_user_interrupt=False)
-                    except Exception as e:
-                        print(Fore.RED + '   {}'.format(e.message))
-                        raise
-
-        def load():
-            configure_chain = self.load_cfg.keys()
-            print('GET BUILD FILES {} FOR PLATFORM {}'.format(', '.join(configure_chain), self.platform).upper())
-            print('')
-
-            load_order = ['rootfs', 'uboot', 'linux', 'misc']
-
-            for product in load_order:
-                if product in configure_chain:
-                    print(Fore.YELLOW + '  [{}]:'.format(product))
-                    for f_info in self.load_cfg[product]:
-                        done = False
-                        while(not done):
-                            try:
-                                src, size = self.builds.get_file(f_info['file'])
-                            except Exception as e:
-                                print(Fore.YELLOW + '   Error during Download process.')
-                                print(Fore.RED    + '   {}'.format(repr(e)))
-                                answer = util.user_prompt('   Do you want to retry the Download process?', '   Answer', 'YyNn')
-                                if re.match('Y|y', answer):
-                                    done = False
-                                else:
-                                    raise
-
-                            if size == f_info['size']:
-                                done = True
-                            else:
-                                print(Fore.YELLOW + '   File was not downloaded correctly')
-                                answer = util.user_prompt('   Do you want to retry the Download process?', '   Answer', 'YyNn')
-                                if re.match('Y|y', answer):
-                                    done = False
-                                else:
-                                    raise KeyboardInterrupt
-
-                        print('')
-
-                        if f_info['yaml'].device is not None:
-                            to_mount = self.partition_info[1][f_info['yaml'].device]['path']
-                            dest = '/tmp/flashtool/{}'.format(to_mount.split('/')[-1])
-
-                            if not mounted_devs.get(to_mount):
-                                mount(to_mount, dest)
-                                mounted_devs.update({
-                                    to_mount: dest
-                                })
-
-                            # load file on partition
-                            if tarfile.is_tarfile(src):
-                                print('   Extracting tar file {}'.format(src))
-                                util.untar(src, dest)
-                            else:
-                                print('   Copy file {} to mmc'.format(src))
-                                subprocess.call(['cp', src, dest])
-                        else: # there is a command specified
-                            from string import Template
-                            dest = '/tmp/flashtool'
-                            if tarfile.is_tarfile(src):
-                                tar = tarfile.open(src, 'r')
-                                if len(list(tar.getmembers())) != 1:
-                                    print(Fore.Red + '   Tar file has not exactly one member. Can\'t decide which file should be'
-                                          'loaded via dd command')
-                                    raise Exception('   Requirements were not met.')
-                                file_name = '{}/{}'.format(dest, tar.getmembers()[0].name)
-                                tar.close()
-                                print('   Extracting tar file {}'.format(src))
-                                util.untar(src, dest)
-                            else:
-                                file_name = src
-
-                            t_str = f_info['yaml'].command[1]
-                            num = t_str.split('device')[1][0]
-                            if isinstance(num, int):
-                                dev = self.partition_info[1][int(num)]['path']
-                                t_str = re.sub('device[0-9]+', 'device', f_info['yaml'].command[1])
-                            else:
-                                dev = self.partition_info[0]
-
-                            cmd = [f_info['yaml'].command[0]] + Template(t_str).safe_substitute(file=file_name, device=dev).split()
-                            print('   Execute command: {}'.format(' '.join(cmd)))
-                            subprocess.call(cmd)
-                            os.remove(file_name)
-
-                        print('')
-
-        def rollback():
-            print(Fore.YELLOW + '   Syncing devices...')
-            subprocess.call('sync')
-            try:
-                umount()
-            except Exception as e:
-                print(Fore.RED + '   {}'.format(e.message))
-
-        mounted_devs = {}
         try:
-            load()
+            self.__do_load()
+            self.__umount()
         except KeyboardInterrupt:
             print('')
             print(Fore.YELLOW + '   User interrupt procedure.')
             print(Fore.YELLOW + '   Rollback:')
-            rollback()
+            self.__rollback()
             raise
         except Exception as e:
             print('')
             print(Fore.RED + '   An error occured:')
             print(Fore.RED + '   {}'.format(str(e)))
-            rollback()
+            self.__rollback()
             raise
 
-        # umount
+    def __do_load(self):
+        fstab = fstab_info()
+
+        for parts in self.recipe['partitions']:
+            name = parts.name
+            for item in self.__partition_info[1]:
+                if item['name'] == name or item['name'] == name.upper():
+                    fstab.append({
+                        'uuid': item['uuid'],
+                        'mountpoint': parts.mount_point,
+                        'type': parts.fs_type,
+                        'options': parts.mount_opts,
+                        'dump': 0,
+                        'pas': 0
+                    })
+        configure_chain = self.load_cfg.keys()
+        print('GET BUILD FILES {} FOR PLATFORM {}'.format(', '.join(configure_chain), self.platform).upper())
+        print('')
+
+        load_order = ['rootfs', 'uboot', 'linux', 'misc']
+
+        for product in load_order:
+            if product in configure_chain:
+                print(Fore.YELLOW + '  [{}]:'.format(product))
+                for f_info in self.load_cfg[product]:
+                    done = False
+                    while not done:
+                        try:
+                            src, size = self.builds.get_file(f_info['file'])
+                        except Exception as e:
+                            print(Fore.YELLOW + '   Error during Download process.')
+                            print(Fore.RED    + '   {}'.format(repr(e)))
+                            answer = util.user_prompt('   Do you want to retry the Download process?', '   Answer', 'YyNn')
+                            if re.match('Y|y', answer):
+                                done = False
+                            else:
+                                raise
+
+                        if size == f_info['size']:
+                            done = True
+                        else:
+                            print(Fore.YELLOW + '   File was not downloaded correctly')
+                            answer = util.user_prompt('   Do you want to retry the Download process?', '   Answer', 'YyNn')
+                            if re.match('Y|y', answer):
+                                done = False
+                            else:
+                                raise KeyboardInterrupt
+
+                    print('')
+
+                    if f_info['yaml'].device is not None:
+                        to_mount = self.__partition_info[1][f_info['yaml'].device]['path']
+                        dest = '/tmp/flashtool/{}'.format(to_mount.split('/')[-1])
+
+                        if not self.__mounted_devs.get(to_mount):
+                            self.__mount(to_mount, dest)
+                            self.__mounted_devs.update({
+                                to_mount: dest
+                            })
+
+                        # load file on partition
+                        if tarfile.is_tarfile(src):
+                            print('   Extracting tar file {}'.format(src))
+                            util.untar(src, dest)
+                        else:
+                            print('   Copy file {} to mmc'.format(src))
+                            subprocess.call(['cp', src, dest])
+
+                        if product == 'rootfs':
+                            tab_dev = to_mount
+                    else: # there is a command specified
+                        from string import Template
+                        dest = '/tmp/flashtool'
+                        if tarfile.is_tarfile(src):
+                            tar = tarfile.open(src, 'r')
+                            if len(list(tar.getmembers())) != 1:
+                                print(Fore.Red + '   Tar file has not exactly one member. Can\'t decide which file should be'
+                                      'loaded via dd command')
+                                raise Exception('   Requirements were not met.')
+                            file_name = '{}/{}'.format(dest, tar.getmembers()[0].name)
+                            tar.close()
+                            print('   Extracting tar file {}'.format(src))
+                            util.untar(src, dest)
+                        else:
+                            file_name = src
+
+                        t_str = f_info['yaml'].command[1]
+                        num = t_str.split('device')[1][0]
+                        if isinstance(num, int):
+                            dev = self.__partition_info[1][int(num)]['path']
+                            t_str = re.sub('device[0-9]+', 'device', f_info['yaml'].command[1])
+                        else:
+                            dev = self.__partition_info[0]
+
+                        cmd = [f_info['yaml'].command[0]] + Template(t_str).safe_substitute(file=file_name, device=dev).split()
+                        print('   Execute command: {}'.format(' '.join(cmd)))
+                        subprocess.call(cmd)
+                        os.remove(file_name)
+                        if product == 'rootfs':
+                            tab_dev = dev
+
+                    print('')
+
+        if tab_dev:
+            tab_dest = '/tmp/flashtool/{}'.format(tab_dev.split('/')[-1])
+            if not self.__mounted_devs.get(tab_dev):
+                self.__mount(tab_dev, tab_dest)
+                self.__mounted_devs.update({
+                    tab_dev: tab_dest
+                })
+
+            generate_fstab(fstab, tab_dest)
+
+
+    def finish_deployment(self):
         print(Fore.YELLOW + '   Nearly finished. Syncing device...')
         subprocess.call('sync')
         print(Fore.YELLOW + '   Ready to umount devices...')
-        umount()
-        print(Fore.GREEN +  '   MMC setup DONE!')
+        self.__umount()
+        print(Fore.GREEN + '   MMC setup DONE!')
+
+
+    def __mount(self, to_mount, dest_mount_point):
+        # if device is not mounted, mount it
+        try:
+            os.makedirs(dest_mount_point)
+        except OSError as e:
+            pass
+        print('   Mount {} to {}'.format(to_mount, dest_mount_point))
+        util.os_call(['mount', to_mount, dest_mount_point], timeout=15)
+
+    def __umount(self):
+        if self.__mounted_devs:
+            for k,v in self.__mounted_devs.items():
+                print('   Umount {}'.format(k))
+                try:
+                    util.os_call(['umount', k], allow_user_interrupt=False)
+                except Exception as e:
+                    print(Fore.RED + '   {}'.format(e.message))
+                    raise
+
+    def __rollback(self):
+        print(Fore.YELLOW + '   Syncing devices...')
+        subprocess.call('sync')
+        try:
+            self.__umount()
+        except Exception as e:
+            print(Fore.RED + '   {}'.format(e.message))
 
 
 def _check_disk(device):

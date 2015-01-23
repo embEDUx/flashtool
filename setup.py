@@ -36,8 +36,7 @@ setup(
         'pyudev>=0.16.1',
         'argcomplete>=0.8.3',
         'PyYAML>=3.11',
-        'pyparted',
-        'configparser'
+        'pyparted'
     ],
     classifiers=[
         'Environment :: Console',
