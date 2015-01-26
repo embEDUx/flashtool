@@ -15,7 +15,7 @@ TODO ...Describtion...
 
 Requirements Python:
 
-- pip install colorama pyudev argcomplete PyYAML
+- pip install colorama pyudev argcomplete PyYAML requests
 - pip install git+https://github.com/dcantrell/pyparted.git@pyparted-3.10.2#eg=pyparte
     * Ubuntu-User: requires python3-dev
 
