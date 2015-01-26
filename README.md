@@ -6,17 +6,18 @@ TODO ...Describtion...
 
 ### System Requirements
 
-- python
+- python3
+- python3-dev
 - virtualenv
 - libudev >= 151
+- libparted
 - git
-- python-parted / pyparted
 
-- maybe use blivet:
-    * git+https://github.com/dcantrell/pyparted.git
-    * pyudev
+Requirements Python:
 
-pip install git+https://GIT-URL#egg=pyrsync
+- pip install colorama pyudev argcomplete PyYAML
+- pip install git+https://github.com/dcantrell/pyparted.git@pyparted-3.10.2#eg=pyparte
+    * Ubuntu-User: requires python3-dev
 
 
 ## Supported Platforms
@@ -32,41 +33,3 @@ This configuration affects kernel, flatten-device-tree files and u-boot.
  - Quemu-arm
  
  - Beaglebone (in process)
-
-
-## Supported Labs
-
-This configuration affects rootFS and config partition (see below).
-
- - BASE (light-weight rootFS)
- - SYSO (Systemsoftware)
- - BSYS (Betriebssysteme)
-
-You can find a list of all contained software packages in
-chapter Software Packages.
-
-
-## Software Packages
-
-Lists with packages per rootFS configuration:
-
-_BASE:_
- - ...
-
-
-_SYSO:_
- - ...
-
-
-_BSYS:_
- - ...
-
-
-# Development (Brainstorming)
-
-__pyrsync:__
-
- Kann nicht über das normale pip prozedere installiert werden (siehe [Issue](https://github.com/isislovecruft/pyrsync/issues/3)).
- Folgendes Kommando muss ausgeführt werden:
-
-  
