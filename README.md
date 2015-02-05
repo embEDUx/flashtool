@@ -15,13 +15,13 @@ __System:__
 
 __Python packages:__
 
--colorama
--pyudev
--argcomplete
--PyYAML
--requests
--jinja2
--pyparted
+- colorama
+- pyudev
+- argcomplete
+- PyYAML
+- requests
+- jinja2
+- pyparted
 
 
 ## Installation
@@ -37,7 +37,7 @@ $> apt-get install python3python3-dev python-virtualenvironment libudev-dev libp
 __Installation Arch Linux:__
 
 ```sh
-$> pacman -S ... // TO BE CONTINUED
+$> pacman -S python3 python-virtualenv libsystemd parted git
 ```
 
 __Installation Fedora Linux:__
