@@ -1,7 +1,7 @@
- git+https://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git
  colorama>=0.3.2
  pyudev>=0.16.1
  argcomplete>=0.8.3
  PyYAML>=3.11
  jinja2
  git+https://github.com/rhinstaller/pyparted.git@pyparted-3.10.2#egg=pyparted
+ git+https://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git

@@ -31,13 +31,6 @@ setup(
             'flashtool=embedux_flashtool:main'
         ]
     },
-    install_requires=[
-        'colorama>=0.3.2',
-        'pyudev>=0.16.1',
-        'argcomplete>=0.8.3',
-        'PyYAML>=3.11',
-        'pyparted'
-    ],
     classifiers=[
         'Environment :: Console',
         'Programming Language :: Python :: 3',
