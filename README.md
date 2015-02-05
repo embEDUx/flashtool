@@ -72,7 +72,7 @@ $> deactivate
 
 ```
 
-* Installation via pip
+* Installation of python packages via pip
 
 ```sh
 $> source {path/to/virtualenv}/bin/activate  # go into virtualenv
