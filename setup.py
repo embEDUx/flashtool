@@ -12,7 +12,6 @@ def get_version(relpath="__init__.py"):
     for line in open(join(dirname(__file__), name, relpath)):
         if '__version__' in line:
             if '"' in line:
-                # __version__ = "0.9"
                 return line.split('"')[1]
             elif "'" in line:
                 return line.split("'")[1]
@@ -27,7 +26,7 @@ setup(
     packages=find_packages(),
     keywords="embedded flash",
     entry_points={
-        'conosle_scripts': [
+        'console_scripts': [
             'flashtool=flashtool:main'
         ]
     },
