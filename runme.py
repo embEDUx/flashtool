@@ -1,5 +1,5 @@
 #/usr/bin/env python
 
-import embedux_flashtool as flashtool
+import flashtool as flashtool
 
 flashtool.main()

@@ -5,4 +5,4 @@
  jinja2
  requests
  git+https://github.com/rhinstaller/pyparted.git@pyparted-3.10.2#egg=pyparted
- git+https://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git
+ git+https://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git#egg=flashtool

@@ -12,7 +12,7 @@ from urllib.request import urlretrieve
 from urllib.request import urlopen
 import json
 
-import embedux_flashtool.utility as util
+import flashtool.utility as util
 
 
 class BuildserverConnectionError(Exception):
@@ -167,6 +167,8 @@ class Buildserver():
                 re_file = re.compile(str_match)
                 matched_files = list(filter(lambda f_name: re_file.match(f_name), files))
                 versions = sorted(set([f[:f.rfind('_')] for f in matched_files]))
+
+                #sort via date stamp of file
 
                 if len(versions) > 1:
                     print(

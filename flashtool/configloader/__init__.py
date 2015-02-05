@@ -1,5 +1,5 @@
 import os
-import embedux_flashtool.utility as util
+import flashtool.utility as util
 import re
 import logging as log
 from colorama import Fore

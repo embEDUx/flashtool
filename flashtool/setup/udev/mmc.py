@@ -1,7 +1,7 @@
 __author__ = 'mahieke'
 
 import logging as log
-import embedux_flashtool.utility as util
+import flashtool.utility as util
 from functools import partial
 from pyudev import Context
 from pyudev import Device

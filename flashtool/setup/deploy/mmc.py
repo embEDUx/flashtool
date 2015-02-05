@@ -3,12 +3,12 @@ from __future__ import print_function
 
 __author__ = 'mahieke'
 
-import embedux_flashtool.setup.udev.mmc as udev
-from embedux_flashtool.setup.deploy import Deploy
-import embedux_flashtool.utility as util
-from embedux_flashtool.setup.constants import mkfs_support
-from embedux_flashtool.setup.deploy.templateloader import fstab_info
-from embedux_flashtool.setup.deploy.templateloader import generate_fstab
+import flashtool.setup.udev.mmc as udev
+from flashtool.setup.deploy import Deploy
+import flashtool.utility as util
+from flashtool.setup.constants import mkfs_support
+from flashtool.setup.deploy.templateloader import fstab_info
+from flashtool.setup.deploy.templateloader import generate_fstab
 
 import re
 from colorama import Fore

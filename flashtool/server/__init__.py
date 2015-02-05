@@ -7,7 +7,7 @@ from colorama import Fore
 import shutil
 import logging as log
 
-import embedux_flashtool.utility as util
+import flashtool.utility as util
 
 _word = '[a-zA-Z]|[0-9]|[-_.]'
 

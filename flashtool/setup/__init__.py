@@ -2,11 +2,11 @@ __author__ = 'mahieke'
 
 import yaml
 
-from embedux_flashtool.setup.recipe import RecipeImportException
-from embedux_flashtool.setup.recipe import RecipeContentException
-from embedux_flashtool.setup.setupfactory import *
-from embedux_flashtool.server.buildserver import Buildserver, LocalBuilds
-import embedux_flashtool.utility as util
+from flashtool.setup.recipe import RecipeImportException
+from flashtool.setup.recipe import RecipeContentException
+from flashtool.setup.setupfactory import *
+from flashtool.server.buildserver import Buildserver, LocalBuilds
+import flashtool.utility as util
 from colorama import Fore
 import re
 
@@ -60,10 +60,10 @@ class Setup():
 
 def _import_recipe_class(name):
     """import setup recipe class """
-    from embedux_flashtool.setup.recipe import Recipe
+    from flashtool.setup.recipe import Recipe
     import importlib
 
-    path = "embedux_flashtool.setup.recipe."
+    path = "flashtool.setup.recipe."
 
     python_name = name.lower()
 

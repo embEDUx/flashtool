@@ -11,11 +11,11 @@ from colorama import init
 from colorama import Fore
 from colorama import Style
 
-from embedux_flashtool.configloader import ConfigLoader
-from embedux_flashtool.server import cfgserver
-from embedux_flashtool.setup import Setup
-import embedux_flashtool.utility as util
-from embedux_flashtool.server.buildserver import Buildserver
+from flashtool.configloader import ConfigLoader
+from flashtool.server import cfgserver
+from flashtool.setup import Setup
+import flashtool.utility as util
+from flashtool.server.buildserver import Buildserver
 
 
 __version__ = '0.0.2'
@@ -358,3 +358,5 @@ def main():
         print(Fore.GREEN + 'User aborted the process!')
         print(Fore.RED + Style.BRIGHT + 'This could lead to a inconsistent state for '
                                         'the configured platform, if interrupted after the preparation procedure.')
+
+

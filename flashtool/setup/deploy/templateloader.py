@@ -6,7 +6,7 @@ from colorama import Fore
 
 def generate_fstab(info, destination):
     print(Fore.YELLOW + '   Generate fstab for device:')
-    env = Environment(loader=PackageLoader('embedux_flashtool', 'templates'))
+    env = Environment(loader=PackageLoader('flashtool', 'templates'))
     template = env.get_template('fstab')
     stream = template.stream(info=info)
     file = '{}/etc/fstab'.format(destination.rstrip('/'))

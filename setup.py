@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-name = "embedux_flashtool"
+name = "flashtool"
 
 
 def get_version(relpath="__init__.py"):
@@ -28,7 +28,7 @@ setup(
     keywords="embedded flash",
     entry_points={
         'conosle_scripts': [
-            'flashtool=embedux_flashtool:main'
+            'flashtool=flashtool:main'
         ]
     },
     classifiers=[

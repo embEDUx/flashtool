@@ -10,11 +10,11 @@ def _import_deployment_module(name):
     Imports corresponding deployment classes for preparation the platform and loading
     products to the platform
     """
-    from embedux_flashtool.setup.deploy import Deploy
-    from embedux_flashtool.setup.deploy import DeployImportException
+    from flashtool.setup.deploy import Deploy
+    from flashtool.setup.deploy import DeployImportException
     import importlib
 
-    path="embedux_flashtool.setup.deploy."
+    path="flashtool.setup.deploy."
 
     python_name = name.lower()
 

@@ -1,10 +1,10 @@
 __author__ = 'mahieke'
 
-from embedux_flashtool.setup.recipe import Recipe
-from embedux_flashtool.setup.recipe import Load
-from embedux_flashtool.setup.recipe import RecipeContentException
-import embedux_flashtool.utility as util
-from embedux_flashtool.setup.constants import mkfs_support
+from flashtool.setup.recipe import Recipe
+from flashtool.setup.recipe import Load
+from flashtool.setup.recipe import RecipeContentException
+import flashtool.utility as util
+from flashtool.setup.constants import mkfs_support
 
 import _ped
 import re
@@ -48,7 +48,7 @@ class Partition(Recipe):
         self.check_attributes(attributes)
         if attributes['size'] != 'max':
             attributes['size'] = self.__to_byte(attributes['size'])
-        attributes['name'] = attributes['name'].upper()
+        attributes['name'] = attributes['name'].upper().strip()
 
         Recipe.__init__(self, attributes)
 

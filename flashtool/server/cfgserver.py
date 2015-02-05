@@ -1,6 +1,6 @@
 __author__ = 'mahieke'
 
-from embedux_flashtool.server import Git
+from flashtool.server import Git
 
 class ConfigServer():
     '''
