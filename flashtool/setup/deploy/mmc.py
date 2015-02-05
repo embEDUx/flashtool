@@ -9,6 +9,7 @@ import flashtool.utility as util
 from flashtool.setup.constants import mkfs_support
 from flashtool.setup.deploy.templateloader import fstab_info
 from flashtool.setup.deploy.templateloader import generate_fstab
+from flashtool.setup.deploy.templateloader import get_fstab_fstype
 
 import re
 from colorama import Fore
@@ -42,6 +43,7 @@ class MMCDeploy(Deploy):
         self.__mounted_devs = {}
 
         util.check_permissions(self.__udev[0]['path'])
+        self.__ensure_unmounted([child['path'] for child in self.__udev[1]])
         build_info = self.builds.get_builds_info()
         yaml_info = {}
         self.load_cfg = {}
@@ -136,7 +138,6 @@ class MMCDeploy(Deploy):
             #TODO: raise an exception
             exit(0)
 
-
     def prepare(self):
         '''
         Method will prepare the mmc device by following the recipe.
@@ -221,11 +222,12 @@ class MMCDeploy(Deploy):
         for parts in self.recipe['partitions']:
             name = parts.name
             for item in self.__partition_info[1]:
+                fs_type = get_fstab_fstype(parts.fs_type)
                 if item['name'] == name or item['name'] == name.upper():
                     fstab.append({
                         'uuid': item['uuid'],
                         'mountpoint': parts.mount_point,
-                        'type': parts.fs_type,
+                        'type': fs_type,
                         'options': parts.mount_opts,
                         'dump': 0,
                         'pas': 0
@@ -328,14 +330,12 @@ class MMCDeploy(Deploy):
 
             generate_fstab(fstab, tab_dest)
 
-
     def finish_deployment(self):
         print(Fore.YELLOW + '   Nearly finished. Syncing device...')
         subprocess.call('sync')
         print(Fore.YELLOW + '   Ready to umount devices...')
         self.__umount()
         print(Fore.GREEN + '   MMC setup DONE!')
-
 
     def __mount(self, to_mount, dest_mount_point):
         # if device is not mounted, mount it
@@ -355,6 +355,15 @@ class MMCDeploy(Deploy):
                 except Exception as e:
                     print(Fore.RED + '   {}'.format(e.message))
                     raise
+
+    def __ensure_unmounted(self, devs):
+        for path in devs:
+            for line in open("/proc/mounts"):
+                if path in line:
+                    print('Device {} was mounted:'.format(path))
+                    util.os_call(['umount', path])
+                    print(' --> umount')
+
 
     def __rollback(self):
         print(Fore.YELLOW + '   Syncing devices...')

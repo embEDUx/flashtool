@@ -13,6 +13,12 @@ def generate_fstab(info, destination):
     stream.dump(file)
     print(Fore.GREEN + '      Copied to /etc/fstab')
 
+def get_fstab_fstype(typ):
+    if typ == 'fat32':
+        return 'vfat'
+    else:
+        return typ
+
 
 class fstab_info(object):
     def __init__(self):
