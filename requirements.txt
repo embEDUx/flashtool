@@ -1,4 +1,4 @@
--e git+https://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git#egg=flashtool
+ git+https://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool.git#egg=flashtool
  colorama>=0.3.2
  pyudev>=0.16.1
  argcomplete>=0.8.3
