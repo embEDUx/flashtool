@@ -30,19 +30,19 @@ __Python packages:__
 
 __Installation Ubuntu/Debian:__
 
-```
+```sh
 $> apt-get install python3python3-dev python-virtualenvironment libudev-dev libparted git
 ```
 
 __Installation Arch Linux:__
 
-```
+```sh
 $> pacman -S ... // TO BE CONTINUED
 ```
 
 __Installation Fedora Linux:__
 
-```
+```sh
 $> yum -S ... // TO BE CONTINUED
 ```
 
@@ -51,7 +51,7 @@ __Installation Python:__
 
 * Virtualenv:
 
-```
+```sh
 # Creating an virtual environment for python (python version must be >=3)
 $> virtualenv -p python3  {path/for/virtualenv}  # python3 can also be python3.x
 
@@ -74,7 +74,7 @@ $> deactivate
 
 * Installation via pip
 
-```
+```sh
 $> source {path/to/virtualenv}/bin/activate  # go into virtualenv
 # Required python packages which can be installed via PyPI
 $> pip install colorama pyudev argcomplete PyYAML requests jinja2
