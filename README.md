@@ -31,26 +31,27 @@ __Python packages:__
 __Installation Ubuntu/Debian:__
 
 ```
-apt-get install python3python3-dev python-virtualenvironment libudev-dev libparted git
+$> apt-get install python3python3-dev python-virtualenvironment libudev-dev libparted git
 ```
 
 __Installation Arch Linux:__
 
 ```
-pacman -S ... // TO BE CONTINUED
+$> pacman -S ... // TO BE CONTINUED
 ```
 
 __Installation Fedora Linux:__
 
 ```
-yum -S ... // TO BE CONTINUED
+$> yum -S ... // TO BE CONTINUED
 ```
 
 __Installation Python:__
 
 
 * Virtualenv:
-```bash
+
+```
 # Creating an virtual environment for python (python version must be >=3)
 $> virtualenv -p python3  {path/for/virtualenv}  # python3 can also be python3.x
 
