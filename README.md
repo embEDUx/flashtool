@@ -2,9 +2,9 @@
 
 TODO ...Describtion...
 
-## Installation
+## Requirements
 
-### System Requirements
+__System:__
 
 - python3
 - python3-dev
@@ -13,23 +13,77 @@ TODO ...Describtion...
 - libparted
 - git
 
-Requirements Python:
+__Python packages:__
 
-- pip install colorama pyudev argcomplete PyYAML requests jinja2
-- pip install git+https://github.com/dcantrell/pyparted.git@pyparted-3.10.2#eg=pyparte
-    * Ubuntu-User: requires python3-dev
+-colorama
+-pyudev
+-argcomplete
+-PyYAML
+-requests
+-jinja2
+-pyparted
 
 
-## Supported Platforms
+## Installation
 
-This configuration affects kernel, flatten-device-tree files and u-boot.
+### Required Packages
 
- - Colibri T20 
-   - Iris Board
-   - ARMrider
+__Installation Ubuntu/Debian:__
 
- - Raspberry Pi
+```
+apt-get install python3python3-dev python-virtualenvironment libudev-dev libparted git
+```
 
- - Quemu-arm
- 
- - Beaglebone (in process)
+__Installation Arch Linux:__
+
+```
+pacman -S ... // TO BE CONTINUED
+```
+
+__Installation Fedora Linux:__
+
+```
+yum -S ... // TO BE CONTINUED
+```
+
+__Installation Python:__
+
+
+* Virtualenv:
+```bash
+# Creating an virtual environment for python (python version must be >=3)
+$> virtualenv -p python3  {path/for/virtualenv}  # python3 can also be python3.x
+
+# "go" into the virtual environment. All packages installed via pipwill only
+# be installed at the location of the virtual environment ({path/for/virtual-env})
+
+$> source {path/for/virtualenv}/bin/activate
+
+# All python related packages will now be executed from virtual environement path
+# The python installation of the system will be untouched.
+
+
+# working in virtual environment ...
+
+
+# leave virtual environement
+$> deactivate
+
+```
+
+* Installation via pip
+
+```
+$> source {path/to/virtualenv}/bin/activate  # go into virtualenv
+# Required python packages which can be installed via PyPI
+$> pip install colorama pyudev argcomplete PyYAML requests jinja2
+# Required package which must be retrived from github
+$> pip install git+https://github.com/dcantrell/pyparted.git@pyparted-3.10.2#eg=pyparted
+```
+
+
+## Testing:
+
+The tool was developed on an Arch Linux system. Production tests were made on
+a native Arch Linux System, virtual Ubuntu Linux, virtual Arch Linux and 
+virtual Fedora Linux.
