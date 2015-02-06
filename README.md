@@ -77,9 +77,7 @@ $> deactivate
 ```sh
 $> source {path/to/virtualenv}/bin/activate  # go into virtualenv
 # Required python packages which can be installed via PyPI
-$> pip install colorama pyudev argcomplete PyYAML requests jinja2
-# Required package which must be retrived from github
-$> pip install git+https://github.com/dcantrell/pyparted.git@pyparted-3.10.2#eg=pyparted
+$> pip install -r https://apu.in.htwg-konstanz.de/labworks-embEDUx/flashtool/raw/master/requirements.txt
 ```
 
 
