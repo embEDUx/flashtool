@@ -15,18 +15,18 @@ class ConfigLoader():
 
     """
 
-    def __init__(self, file):
+    def __init__(self, file=''):
         """
         :param file: location of flashtool.cfg file
         """
-        try:
-            assert isinstance(file, basestring)
-        except NameError:
-            assert isinstance(file, str)
+        assert isinstance(file, str)
 
         self.file = file
         self.__parser = configparser.ConfigParser()
 
+
+    def set_file(self,path):
+        self.file = path
 
     def load_config(self, config_options):
         """
@@ -43,7 +43,7 @@ class ConfigLoader():
                 return self.__parser
 
 
-    def enter_config(self, config_options, overwrite=False):
+    def enter_config(self, config_options, overwrite=False, required_sections = []):
         '''
         Creates or reads a the config file given by self.file and sets up
          all needed options. Values for unset options will be asked to be
@@ -62,63 +62,54 @@ class ConfigLoader():
 
         changed = False
 
+        if not required_sections:
+            required_sections = config_options.keys()
+
         for section in config_options.keys():
+            if section not in required_sections:
+                continue
+
             if not self.__parser.has_section(section):
                 log.info('  Section "{}" does not exist: CREATE'.format(section))
                 self.__parser.add_section(section)
 
-            options = config_options[section]
+            options = config_options[section]['keywords']
             log.info('  Required options for section [{:15}]: {}'.format(section, ','.join(options)))
 
             if self.__delete_unused_options(options, section):
                 changed = True
 
-
-            for option in options:
-                value = self.__parser.get(section, option, fallback=None)
-                if value:
+            for option in zip(options, config_options[section]['help']):
+                value = self.__parser.get(section, option[0], fallback=None)
+                if value is not None:
                     if overwrite:
-                        answer = util.user_prompt( 'Do you want to overwrite Property [{}]->{}'.format(section, option),
-                                                   'Existing value "{}": '.format(value), 'YyNn')
+                        answer = util.user_prompt( 'Do you want to overwrite Property [{}]->{}'.format(section, option[0]),
+                                                   'Existing value "{}"'.format(value), 'YyNn')
 
                         if re.match(util.create_regex_allowed('Yy'), answer):
-                            new_value = util.user_prompt( 'Type in a value for [{}]->{}'.format(section, option),
-                                                          '{} '.format(option))
+                            new_value = util.user_prompt( 'Type in a value for [{}]->{}\nhelp: {}'.format(section, option[0], option[1]),
+                                                          '{} '.format(option[0]))
 
-                            self.__parser.set(section, option, new_value)
+                            self.__parser.set(section, option[0], new_value)
                             changed = True
                             print('')
 
                 else:
                     new_value = util.user_prompt( 'Type in a value for',
-                                                  '[{}]->{}'.format(section, option))
+                                                  '[{}]->{}\nhelp: {}'.format(section, option[0], option[1]))
 
-                    self.__parser.set(section, option, new_value)
+                    self.__parser.set(section, option[0], new_value)
                     changed = True
                     print('')
 
         if changed:
-            cfgfile = open(self.file, 'w')
-            self.__parser.write(cfgfile)
-            cfgfile.close()
+            cfg_file = open(self.file, 'w')
+            self.__parser.write(cfg_file)
+            cfg_file.close()
             log.info('  Config file changed: SAVED')
             log.info('New config file content:\n{}'.format(self.__dump_config()))
         else:
             log.info('  Values for required options EXIST')
-
-
-    def check_values(self, config_options):
-        self.__parser.read(self.file)
-        answer = True
-        if self.__is_valid_config(config_options):
-            for section in config_options.keys():
-                options = config_options[section]
-
-                for option in options:
-                    if not self.__parser[section][option]:
-                        answer = False
-
-        return answer
 
 
 
@@ -141,9 +132,9 @@ class ConfigLoader():
                 options_in_parser.append(i)
 
             log.debug('  Existing options: {}'.format(','.join(options_in_parser)))
-            log.debug('  Required options: {}'.format(','.join(config_options[section])))
+            log.debug('  Required options: {}'.format(','.join(config_options[section]['keywords'])))
 
-            if not set(config_options[section]).issubset(set(options_in_parser)):
+            if not set(config_options[section]['keywords']).issubset(set(options_in_parser)):
                 is_valid = False
                 log.info('  Section {}: INVALID'.format(section))
                 break

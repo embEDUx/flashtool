@@ -39,13 +39,28 @@ def get_loglvl(verbosity, minimum=3):
 
 class Flashtool():
     __flashtool_conf = {
-        'Config': ['server'],
-        'Buildbot': ['server', 'port'],
-        'Local': ['products'],
+        'Recipes': {
+            'keywords': ['server'],
+            'help': [
+               'Address or URL to a git server which contains yml recipes for different platforms\n'
+               'Must look like: git@{URL-to-server}:{path-to-git-repository}.git'
+            ]},
+        'Buildbot': {
+            'keywords': ['server', 'port'],
+            'help': [
+                'Address or URL to a buildbot server. Optional Port must be set as next parameter.',
+                'Port of the web frontend of the buildbot server'
+            ]},
+        'Local': {
+            'keywords': ['products'],
+            'help': [
+                'Local path where flashtool should save downloaded products if option is selected.'
+            ]},
     }
 
     platform_cfg = 'platforms'
     cfg = 'flashtool.cfg'
+    cfg_loader = ConfigLoader()
 
     def __init__(self):
         home = expanduser("~")
@@ -96,13 +111,27 @@ class Flashtool():
         subparser.required = True
 
         # get configs from repository
-        conf_parser = subparser.add_parser('conf',
+        conf_parser = subparser.add_parser('platform_conf',
                                            help='Manage platform configs'
         )
         conf_parser.add_argument('action',
                                  choices=['init', 'update']
         )
         conf_parser.set_defaults(func=self.__cfg_platform)
+
+        # configure flashtool cfg file
+        flashtool_cfg_parser = subparser.add_parser('flashtool_cfg',
+                                                    help='Manage flashtool config')
+
+        flashtool_cfg_parser.add_argument('keywords',
+                                          choices=list(self.__flashtool_conf.keys()) + [''],
+                                          nargs='*',
+                                          default='',
+                                          help='Options which should be configured. '
+                                               'All option will be asked for configuration, if not given'
+        )
+
+        flashtool_cfg_parser.set_defaults(func=self.__cfg_flashtool)
 
         # list_platforms
         list_platforms_parser = subparser.add_parser('list_platforms',
@@ -303,11 +332,16 @@ class Flashtool():
                 print(Fore.RED + 'ABORT.')
                 exit()
 
-        loader = ConfigLoader(cfg_path)
+        self.cfg_loader.set_file(cfg_path)
 
         # Check config file and set unset properties
-        loader.enter_config(self.__flashtool_conf)
-        self.__conf = loader.load_config(self.__flashtool_conf)
+        self.cfg_loader.enter_config(self.__flashtool_conf)
+        self.__conf = self.cfg_loader.load_config(self.__flashtool_conf)
+
+
+    def __cfg_flashtool(self, args):
+        options = args.keywords
+        self.cfg_loader.enter_config(self.__flashtool_conf, True, options)
 
 
     def __list_builds(self, args):
