@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
 import argparse
+import argcomplete
 import logging as log
 import os
 from os.path import expanduser
 import re
-import argcomplete
 from collections import OrderedDict
+from datetime import datetime
+
 from colorama import init
 from colorama import Fore
 from colorama import Style
@@ -15,7 +17,7 @@ from flashtool.configloader import ConfigLoader
 from flashtool.server import cfgserver
 from flashtool.setup import Setup
 import flashtool.utility as util
-from flashtool.server.buildserver import Buildserver
+from flashtool.server.buildserver import Buildserver, BuildserverConnectionError
 
 
 __version__ = '0.0.2'
@@ -68,69 +70,122 @@ class Flashtool():
         parser = argparse.ArgumentParser(
             description='A utility that allows to flash several embedded devices with different versions of u-boot, kernel and rootFS')
 
-        parser.add_argument('-V', '--version', action='version', version='Version: ' + __version__)
-        parser.add_argument('-v', '--verbosity', default=0, action='count', help='increase output verbosity')
-
+        parser.add_argument('-V', '--version',
+                            action='version',
+                            version='Version: ' + __version__
+        )
+        parser.add_argument('-v', '--verbosity',
+                            default=0,
+                            action='count',
+                            help='increase output verbosity'
+        )
         if self.conf_dir_option_required:
-            parser.add_argument('-w', '--working_dir', required=True,
-                                help='Working directory, default is {}'.format(self.working_dir))
+            parser.add_argument('-w', '--working_dir',
+                                required=True,
+                                help='Working directory, default is {}'.format(self.working_dir)
+            )
         else:
-            parser.add_argument('-w', '--working_dir', required=False,
-                                help='Working directory, default is {}'.format(self.working_dir))
+            parser.add_argument('-w', '--working_dir',
+                                required=False,
+                                help='Working directory, default is {}'.format(self.working_dir)
+            )
 
-        subparser = parser.add_subparsers(title='commands', dest='action')
+        subparser = parser.add_subparsers(title='commands',
+                                          dest='action'
+        )
         subparser.required = True
 
         # get configs from repository
-        conf_parser = subparser.add_parser('conf', help='Manage platform configs')
-        conf_parser.add_argument('action', choices=['init', 'update'])
+        conf_parser = subparser.add_parser('conf',
+                                           help='Manage platform configs'
+        )
+        conf_parser.add_argument('action',
+                                 choices=['init', 'update']
+        )
         conf_parser.set_defaults(func=self.__cfg_platform)
 
         # list_platforms
-        list_platforms_parser = subparser.add_parser('list_platforms', help='List all supported platforms')
+        list_platforms_parser = subparser.add_parser('list_platforms',
+                                                     help='List all supported platforms'
+        )
         list_platforms_parser.set_defaults(func=self.__list_platforms)
 
         # list_builds
-        list_builds_parser = subparser.add_parser('list_builds', help='List built files')
-        list_builds_parser.add_argument('platform', metavar='platform', nargs='?')
-        list_builds_parser.add_argument('--limit', metavar='N', help='Print top N entries')
-        list_builds_parser.add_argument('-w', '--where', choices=['local', 'remote'], default='remote')
+        list_builds_parser = subparser.add_parser('list_builds',
+                                                  help='List built files'
+        )
+        list_builds_parser.add_argument('platform',
+                                        metavar='platform',
+                                        nargs='?'
+        )
+        list_builds_parser.add_argument('--limit', metavar='N',
+                                        help='Print top N entries'
+        )
+        list_builds_parser.add_argument('-w', '--where',
+                                        choices=['local', 'remote'],
+                                        default='remote'
+        )
 
         products_group = list_builds_parser.add_argument_group('Products (optional)',
-                                                                 description='Select products which should be listed. If none '
-                                                                             'is selected, all products for the platform will '
-                                                                             'be displayed.')
+                                                               description='Select products which should be listed. If none '
+                                                                           'is selected, all products for the platform will '
+                                                                           'be displayed.')
 
-        products_group.add_argument('-l', '--linux', action='store_true',
-                                      help='List all linux kernel versions for platform.')
-        products_group.add_argument('-u', '--uboot', action='store_true',
-                                      help='List all uboot names for platform.')
-        products_group.add_argument('-r', '--rootfs', action='store_true',
-                                      help='List all rootfs for platform.')
-        products_group.add_argument('-m', '--misc', action='store_true',
-                                      help='List all misc files for platform.')
+        products_group.add_argument('-l', '--linux',
+                                    action='store_true',
+                                    help='List all linux kernel versions for platform.'
+        )
+        products_group.add_argument('-u', '--uboot',
+                                    action='store_true',
+                                    help='List all uboot names for platform.'
+        )
+        products_group.add_argument('-r', '--rootfs',
+                                    action='store_true',
+                                    help='List all rootfs for platform.'
+        )
+        products_group.add_argument('-m', '--misc',
+                                    action='store_true',
+                                    help='List all misc files for platform.'
+        )
 
         list_builds_parser.set_defaults(func=self.__list_builds)
 
         # setup
-        setup_parser = subparser.add_parser('setup', help='Setup a platform with specified products or all required '
-                                                          'latest products')
+        setup_parser = subparser.add_parser('setup',
+                                            help='Setup a platform with specified products or all required '
+                                                 'latest products'
+        )
 
         setup_group_general = setup_parser.add_argument_group('General options')
 
-        setup_group_general.add_argument('-s', '--source', choices=['local', 'remote'], default='remote', nargs='?',
+        setup_group_general.add_argument('-s', '--source',
+                                         choices=['local', 'remote'],
+                                         default='remote',
+                                         nargs='?',
                                          help='Select if product should be fetched from a local directory or from '
                                               'the buildbot build server. The path or URL to the local directory or '
-                                              'server must be defined in the configuration file \'flashtool.cfg\'.')
+                                              'server must be defined in the configuration file \'flashtool.cfg\'.'
+        )
 
-        setup_group_general.add_argument('-a', '--auto', action='store_true', default=False,
+        setup_group_general.add_argument('-a', '--auto', action='store_true',
+                                         default=False,
                                          help='If an argument for a product matches for multiple files, the system '
                                               'will fetch the latest file of a product in lexicographical order. '
-                                              'Otherwise the user will be prompted to select a specific file.')
+                                              'Otherwise the user will be prompted to select a specific file.'
+        )
 
-        setup_group_general.add_argument('-L', '--Local', action='store_true', default=False,
+        setup_group_general.add_argument('-L', '--Local',
+                                         action='store_true',
+                                         default=False,
                                          help='If this argument is set, all downloaded file will be stored at'
-                                              'the directory which is configured in the cfg file (Attribute Local).')
+                                              'the directory which is configured in the cfg file (Attribute Local).'
+        )
+
+        setup_group_general.add_argument('-fsck', '--filesystem_check',
+                                         action='store_true',
+                                         default=False,
+                                         help='Do a filesystem check on the generated partitions.'
+        )
 
         setup_group1 = setup_parser.add_argument_group('Product Group 1 [linux, uboot, misc]',
                                                        description='If no product options are given, flashtool will '
@@ -139,36 +194,70 @@ class Flashtool():
                                                                    'will be interpreted as regex .*{string}.*. If this '
                                                                    'string matches for multiple will handle this '
                                                                    'situation dependent to the -a/--auto flag '
-                                                                   '(see description above).')
+                                                                   '(see description above).'
+        )
 
-        setup_group1.add_argument('-l', '--linux', metavar='version', required=False,
-                                  help='Setup linux kernel.')
-        setup_group1.add_argument('-u', '--uboot', metavar='version', required=False,
-                                  help='Setup uboot.')
-        setup_group1.add_argument('-m', '--misc', metavar='version', required=False,
-                                  help='Setup misc files.')
+        setup_group1.add_argument('-l', '--linux',
+                                  metavar='version',
+                                  required=False,
+                                  help='Setup linux kernel.'
+        )
+        setup_group1.add_argument('-u', '--uboot',
+                                  metavar='version',
+                                  required=False,
+                                  help='Setup uboot.'
+        )
+        setup_group1.add_argument('-m', '--misc',
+                                  metavar='version',
+                                  required=False,
+                                  help='Setup misc files.'
+        )
 
         setup_group2 = setup_parser.add_argument_group('Product Group 2 [rootfs]',
                                                        description='If no rootfs is specified the system will choose a '
                                                                    'factory rootfs for the platform if exist. Otherwise '
                                                                    'the user will be prompted to choose a specific '
-                                                                   'rootfs.')
+                                                                   'rootfs.'
+        )
 
-        setup_group2.add_argument('-r', '--rootfs', metavar='name', help='Select rootfs')
+        setup_group2.add_argument('-r', '--rootfs',
+                                  metavar='name',
+                                  help='Select rootfs'
+        )
 
-        setup_parser.add_argument('platform', help='Specifies the platform which should be setuped')
+        setup_parser.add_argument('platform',
+                                  help='Specifies the platform which should be setuped'
+        )
 
         setup_parser.set_defaults(func=self.__setup)
+
+        fs_check_parser = subparser.add_parser('check_btrfs',
+                                            help='Filesystem check on a mmc with btrfs partitions'
+        )
+
+        fs_check_parser.add_argument('fs_type',
+                                     choices=['vfat', 'btrfs', 'ext2', 'ext4'],
+                                     nargs='+',
+                                     help='Filesystem types which should be checked.'
+        )
+
+
+        fs_check_parser.set_defaults(func=self.__fs_check)
 
         argcomplete.autocomplete(parser)
         args = parser.parse_args()
 
-        # verbosity of logging
-        log.basicConfig(format='%(asctime)s [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
-                        level=get_loglvl(args.verbosity, 2))
-
         if not args.working_dir:
             args.working_dir = self.working_dir
+        else:
+            args.working_dir = args.working_dir.rstrip('/')
+
+        self.__create_work_dir(args.working_dir)
+
+        # verbosity of logging
+        log.basicConfig(format='%(asctime)s [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+                        level=get_loglvl(args.verbosity, 2),
+                        filename='{}/logs/{}-log'.format(args.working_dir, datetime.now()))
 
         self.__configure(args.working_dir)
 
@@ -185,6 +274,20 @@ class Flashtool():
 
         args.func(args)
 
+    def __create_work_dir(self, working_dir):
+        self.working_dir = working_dir
+        cfg_path = '{}/{}'.format(working_dir, self.cfg)
+
+        if not os.path.exists(working_dir):
+            print(Fore.YELLOW + 'Working directory does not exist at {}'.format(working_dir))
+            answer = util.user_prompt('Do you want to setup working directory "{}"'.format(working_dir), 'Answer',
+                                      'YyNn')
+            if re.match('[Yy]', answer):
+                os.mkdir(working_dir)
+                os.mkdir('{}/logs'.format(working_dir))
+            else:
+                print(Fore.RED + 'ABORT.')
+                exit()
 
     def __configure(self, working_dir):
         self.working_dir = working_dir
@@ -215,19 +318,20 @@ class Flashtool():
             action_values = ['linux', 'uboot', 'rootfs', 'misc']
 
 
+        print('  Retrieving information from Server {}:{}...'.format(self.__conf['Buildbot']['server'], self.__conf['Buildbot']['port']))
         buildbot = Buildserver(self.__conf['Buildbot']['server'], self.__conf['Buildbot']['port'],
                                self.__get_platforms())
 
         build_info = buildbot.get_builds_info(True)
+        print('  Processing json information...');
         builds = buildbot.get_build_info(build_info, action_values, args.platform)
 
-
-        for k,v in builds.items():
-            print(Fore.YELLOW + '  +-{}-+'.format('-'*len(k)))
+        for k, v in builds.items():
+            print(Fore.YELLOW + '  +-{}-+'.format('-' * len(k)))
             print(Fore.YELLOW + '  | {} |'.format(k))
-            print(Fore.YELLOW + '  +-{}-+'.format('-'*len(k)))
-            print()
-            for kk,vv in v.items():
+            print(Fore.YELLOW + '  +-{}-+'.format('-' * len(k)))
+            print('')
+            for kk, vv in v.items():
                 print(Style.BRIGHT + '  {}:'.format(kk))
                 if kk == 'rootfs':
                     for rfs, files in vv:
@@ -238,22 +342,21 @@ class Flashtool():
                     files = sorted(set((f[:f.rfind('_')] for f in vv)))
 
                     for file in files:
-                        types = list((f[f.rfind('_'):] for f in vv if file in f))
+                        types = set(list((f[f.rfind('_'):] for f in vv if file in f)))
                         if len(types) > 1:
                             print('    {} (file types: {})'.format(file, ' | '.join(types)))
                         elif len(types) == 1:
-                            print('    {}{}'.format(file, types[0]))
+                            print('    {}{}'.format(file, list(types)[0]))
 
-                    print('')
+                print('')
 
 
     def __setup(self, args):
         action_values = self.__get_args(args, ['linux', 'uboot', 'misc', 'rootfs'])
 
-        log.debug('Setup following products ' + Fore.YELLOW + '{} '
-                  .format(', '.join([k + ':' + v for k, v in action_values.items()]))
-                  + Fore.RESET + 'for ' + Fore.YELLOW + '{} (source = {}, auto = {})'
-                  .format(args.platform, args.source, args.auto)
+        log.debug('Setup following products {} for {} (source = {}, auto = {}, fsck = {})'
+                  .format(', '.join([k + ':' + v for k, v in action_values.items()]),
+                          args.platform, args.source, args.auto, args.filesystem_check)
         )
 
         supported_platforms = self.__get_platforms()
@@ -282,7 +385,7 @@ class Flashtool():
 
         if args.source == 'local':
             url = {'dir': self.__conf['Local']['products']}
-            #TODO: delete statement when implemented
+            # TODO: delete statement when implemented
             print(Fore.RED + 'Option \'-s local\' \'--source local\' is not implemented yet!')
             exit(1)
         else:
@@ -292,7 +395,7 @@ class Flashtool():
         if args.Local:
             user_dest = self.__conf['Local']['products']
             if not os.path.exists(user_dest):
-                os.mkdir(user_dest,mode=0o777)
+                os.mkdir(user_dest, mode=0o777)
 
         setup = Setup(url, action_values, yaml_path, args.auto, args.platform, user_dest)
         setup.setup()
@@ -346,6 +449,10 @@ class Flashtool():
         return retVal
 
 
+    def __fs_check(self):
+        return
+
+
 def main():
     # Init colorama
     init(autoreset=True)
@@ -358,5 +465,8 @@ def main():
         print(Fore.GREEN + 'User aborted the process!')
         print(Fore.RED + Style.BRIGHT + 'This could lead to a inconsistent state for '
                                         'the configured platform, if interrupted after the preparation procedure.')
+    except BuildserverConnectionError as e:
+        print(Fore.RED + '{}'.format(e.message))
+        print(Fore.YELLOW + 'Please check your network connection!')
 
 

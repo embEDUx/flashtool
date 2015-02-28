@@ -223,9 +223,10 @@ class MMCDeploy(Deploy):
             name = parts.name
             for item in self.__partition_info[1]:
                 fs_type = get_fstab_fstype(parts.fs_type)
-                if item['name'] == name or item['name'] == name.upper():
+                item_name = item['name']
+                if item_name == name or item_name == name.upper():
                     fstab.append({
-                        'uuid': item['uuid'],
+                        'uuid': 'UUID={}'.format(item['uuid']),
                         'mountpoint': parts.mount_point,
                         'type': fs_type,
                         'options': parts.mount_opts,
@@ -363,7 +364,6 @@ class MMCDeploy(Deploy):
                     print('Device {} was mounted:'.format(path))
                     util.os_call(['umount', path])
                     print(' --> umount')
-
 
     def __rollback(self):
         print(Fore.YELLOW + '   Syncing devices...')
@@ -552,9 +552,6 @@ def _format(partitions):
     Formats the new crated partition with the filesystem type which is specified in the recipe.
     :return: None
     '''
-    def warn(a, b):
-        print(Fore.RED + '   Interrupting format procedure is restricted!')
-
     for part_info in partitions:
         cmd = mkfs_support[part_info['fs_type']][0:-1]
         if part_info['name']:
@@ -562,11 +559,7 @@ def _format(partitions):
 
         cmd = cmd + [part_info['path']]
         print(Fore.YELLOW + '   Format command: {}'.format(' '.join(cmd)))
-
-        s = signal.signal(signal.SIGINT, warn)
-        process = subprocess.Popen(cmd, shell=False)
-        process.wait()
-        signal.signal(signal.SIGINT, s)
+        util.os_call(cmd, allow_user_interrupt=False)
 
 def _get_device(auto=False):
     '''

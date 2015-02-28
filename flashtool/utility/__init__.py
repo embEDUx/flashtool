@@ -210,10 +210,10 @@ def os_call(command, timeout=None, allow_user_interrupt=True):
     out = process.stdout.readlines()
     err = process.stderr.readlines()
 
+    process.wait()
+
     if not allow_user_interrupt:
         signal.signal(signal.SIGINT, s)
-
-    process.wait()
 
     if process.returncode != 0:
         raise SubprocessCallException('"{}" COMMAND FAILED:'.format(' '.join(command)), err)

@@ -10,6 +10,8 @@ import re
 import sys
 from urllib.request import urlretrieve
 from urllib.request import urlopen
+from urllib.error import HTTPError
+from urllib.error import URLError
 import json
 
 import flashtool.utility as util
@@ -61,7 +63,7 @@ class Buildserver():
         except Timeout as e:
             raise BuildserverConnectionError('Connection timed out.\n' + Fore.RED + 'Info: {}'.format(e.message))
 
-        log.debug(Fore.GREEN + 'Buildserver url "{}" is valid.'.format(self.url))
+        log.debug('Buildserver url "{}" is valid.'.format(self.url))
 
         self.loaded_files = []
 
@@ -159,9 +161,12 @@ class Buildserver():
         for platform, products_info in file_info.items():
             for product, unsorted_files in products_info.items():
                 if product == 'rootfs':
-                    files = ['rootfs/{}/{}'.format(e[0], ee) for e in unsorted_files for ee in e[1]]
+                    files = ['rootfs/{}/{}'.format(k, e) for k,v in unsorted_files.items() for e in v]
                 else:
                     files = ['{}/{}/{}'.format(product, platform, e) for e in unsorted_files]
+
+                # check if file is available on server
+                #files = [f for f in files if self.is_file_available(f)]
 
                 str_match = '.*{}.*'.format(reg_name)
                 re_file = re.compile(str_match)
@@ -207,24 +212,48 @@ class Buildserver():
 
         return ret_val
 
+    def is_file_available(self, path_to_file):
+        try:
+            urlopen('{}/{}'.format(self.url,path_to_file))
+        except HTTPError as e:
+            log.warning('Could not retrieve file {} from server: Code {}'.format(path_to_file, e.code))
+            return False
+        except URLError as e:
+            log.warning('Could not retrieve file {} from server: Code {}'.format(path_to_file, e.args))
+            return False
+
+        return True
+
     def get_build_info(self, builds, wanted_products, wanted_platform=None):
         ret_val = OrderedDict()
 
-        for k,v in builds.items():
+        for platform,build_info in builds.items():
             if wanted_platform:
-                if k != wanted_platform:
+                if platform != wanted_platform:
                     continue
 
-            for kk,vv in v.items():
-                if kk in wanted_products:
-                    if ret_val.get(k):
-                        ret_val[k].update({
-                            kk:vv
+            for product, files_info in build_info.items():
+                if product in wanted_products:
+                    if product == 'rootfs':
+                        files = OrderedDict()
+                        for type, fs in files_info.items():
+                            for f in fs:
+                                if self.is_file_available('rootfs/{}/{}'.format(type, f)):
+                                    if files.get(type):
+                                        files[type].append(f)
+                                    else:
+                                        files.update({type: [f]})
+                    else:
+                        files = [e for e in files_info if self.is_file_available('{}/{}/{}'.format(product, platform, e))]
+
+                    if ret_val.get(platform):
+                        ret_val[platform].update({
+                            product:files
                         })
                     else:
                         ret_val.update({
-                            k: OrderedDict({
-                                kk:vv
+                            platform: OrderedDict({
+                                product:files
                             })
                         })
 
@@ -258,6 +287,27 @@ class Buildserver():
                     else:
                         self.builds.update({platform: OrderedDict({product: files})})
 
+            def append_to_rfsbuilds(self, platform, file_type, files):
+                if platform and file_type and files:
+                    if self.builds.get(platform):
+                        if self.builds[platform].get('rootfs'):
+                            if self.builds[platform]['rootfs'].get(file_type):
+                                self.builds[platform]['rootfs'][file_type].extend(files)
+                            else:
+                                self.builds[platform]['rootfs'].update({file_type: files})
+                        else:
+                            self.builds[platform].update({
+                                'rootfs': OrderedDict({file_type: files})
+                            })
+                    else:
+                        self.builds.update({
+                            platform: OrderedDict({
+                                'rootfs': OrderedDict({
+                                    file_type: files
+                                })
+                            })
+                        })
+
         platforms = self.info['platforms']
 
         if not force_new:
@@ -284,9 +334,9 @@ class Buildserver():
                     if builds_info.get('text') and builds_info['text'][0] == 'build' and builds_info['text'][1] == 'successful':
                         # flatten properties to a list with strings
                         props = [x for y in builds_info['properties'] for x in y]
-                        platform = get_from_flatten_list(props, 'platform')
+                        cfg_platform = get_from_flatten_list(props, 'platform')
 
-                        if platform in self.valid_platforms:
+                        if cfg_platform in self.valid_platforms:
                             product = get_from_flatten_list(props, 'product')
                             files = get_from_flatten_list(props, 'upload_files')
 
@@ -307,11 +357,7 @@ class Buildserver():
                         props = [x for y in builds_info['properties'] for x in y]
                         rootfs_name = get_from_flatten_list(props, 'platform')
                         files = get_from_flatten_list(props,  'upload_files')
-                        if files:
-                            files = list(map(lambda x: (rootfs_name, files), files))
-
-                            for platform in (x[0] for x in platforms if x[1] == arch):
-                                builds.append_to_builds(platform, 'rootfs', files)
+                        builds.append_to_rfsbuilds(platform, rootfs_name, files)
 
         self.info['builds'] = builds.builds
 
@@ -486,7 +532,7 @@ class LocalBuilds():
         if not os.path.isdir(path):
             raise LocalBuildsError('Local directory "{}" does not exist.'.format(path))
 
-        log.debug(Fore.GREEN + 'Local directory path "{}" is valid.'.format(self.path))
+        log.debug('Local directory path "{}" is valid.'.format(self.path))
 
 
     def get_builds_info(self, wanted_products, wanted_platform=None, force_new=False):

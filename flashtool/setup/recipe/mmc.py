@@ -9,6 +9,10 @@ from flashtool.setup.constants import mkfs_support
 import _ped
 import re
 
+import parted
+
+
+
 class MMC(Recipe):
     attr = ['partitions', 'partition_table', 'load']
 

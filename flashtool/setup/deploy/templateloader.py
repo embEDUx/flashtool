@@ -35,10 +35,12 @@ class fstab_object(object):
     args = ['uuid', 'mountpoint', 'type', 'dump', 'pas', 'options']
 
     def __init__(self, kwargs):
-        #uuid, mountpoint, fstype, dump, pas, options='defaults'):
-        for key in kwargs:
+        #uuid, mountpoint, fstype, dump, pas, options='defaults')
+        for key in kwargs.keys():
             if key in self.args:
                 self.__dict__[key] = kwargs[key]
 
     def __getattr__(self, at):
         return self[at]
+
+

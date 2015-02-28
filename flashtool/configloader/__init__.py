@@ -55,7 +55,7 @@ class ConfigLoader():
         '''
         log.info('Enter config file "{}"'.format(self.file))
         if not os.path.isfile(self.file):
-            log.info('  Config file "{}" does not exist: '.format(self.file) + Fore.GREEN + 'CREATE')
+            log.info('  Config file "{}" does not exist: CREATE'.format(self.file))
             open(self.file, 'a')
 
         self.__parser.read(self.file)
@@ -64,11 +64,11 @@ class ConfigLoader():
 
         for section in config_options.keys():
             if not self.__parser.has_section(section):
-                log.info('  Section "{}" does not exist: '.format(section) + Fore.GREEN + 'CREATE')
+                log.info('  Section "{}" does not exist: CREATE'.format(section))
                 self.__parser.add_section(section)
 
             options = config_options[section]
-            log.info('  Required options for section ' + Fore.YELLOW + '[{:15}]: {}'.format(section, ','.join(options)))
+            log.info('  Required options for section [{:15}]: {}'.format(section, ','.join(options)))
 
             if self.__delete_unused_options(options, section):
                 changed = True
@@ -101,10 +101,10 @@ class ConfigLoader():
             cfgfile = open(self.file, 'w')
             self.__parser.write(cfgfile)
             cfgfile.close()
-            log.info('  Config file changed: ' + Fore.GREEN + 'SAVED')
+            log.info('  Config file changed: SAVED')
             log.info('New config file content:\n{}'.format(self.__dump_config()))
         else:
-            log.info('  Values for required options  ' + Fore.GREEN + 'EXIST')
+            log.info('  Values for required options EXIST')
 
 
     def check_values(self, config_options):
@@ -140,15 +140,15 @@ class ConfigLoader():
             for i in self.__parser.options(section):
                 options_in_parser.append(i)
 
-            log.debug('  Existing options: ' + Fore.YELLOW + '{}'.format(','.join(options_in_parser)))
-            log.debug('  Required options: ' + Fore.YELLOW + '{}'.format(','.join(config_options[section])))
+            log.debug('  Existing options: {}'.format(','.join(options_in_parser)))
+            log.debug('  Required options: {}'.format(','.join(config_options[section])))
 
             if not set(config_options[section]).issubset(set(options_in_parser)):
                 is_valid = False
-                log.info('  Section {}: ' + Fore.RED + 'INVALID'.format(section))
+                log.info('  Section {}: INVALID'.format(section))
                 break
 
-            log.info('Section [{}]: '.format(section) + Fore.GREEN + 'VALID')
+            log.info('Section [{}]: VALID'.format(section))
 
         return is_valid
 
@@ -172,7 +172,7 @@ class ConfigLoader():
 
         if unused_options:
             hasDeleted = True
-            log.info('  Found unused options "{}" in section {}: '.format(','.join(unused_options), section) + Fore.RED + 'DELETE')
+            log.info('  Found unused options "{}" in section {}: DELETE'.format(','.join(unused_options), section))
 
         for option in unused_options:
             self.__parser.remove_option(section, option)
