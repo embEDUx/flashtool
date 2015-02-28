@@ -44,7 +44,11 @@ class Buildserver():
         :param configured_platforms: Valid platforms
         '''
         address = address.rstrip('/').rstrip(':')
-        self.url = '{}:{}'.format(address, port)
+        if port is '':
+            self.url = '{}'.format(address)
+        else:
+            self.url = '{}:{}'.format(address,port)
+
         self.valid_platforms = configured_platforms
         self.info = {
             'builders': None,

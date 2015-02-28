@@ -111,8 +111,8 @@ class Flashtool():
         subparser.required = True
 
         # get configs from repository
-        conf_parser = subparser.add_parser('platform_conf',
-                                           help='Manage platform configs'
+        conf_parser = subparser.add_parser('platform_recipes',
+                                           help='Manage platform recipes'
         )
         conf_parser.add_argument('action',
                                  choices=['init', 'update']
@@ -409,7 +409,7 @@ class Flashtool():
 
             message = 'Or you must define a new recipe file ' + Fore.YELLOW + "{}.yml".format(args.platform)
             message += Fore.RESET + ' at directory ' + Fore.YELLOW + '"{}/{}" or repository "{}".' \
-                .format(self.working_dir, self.platform_cfg, self.__conf['Config']['server'])
+                .format(self.working_dir, self.platform_cfg, self.__conf['Recipes']['server'])
 
             print(message)
 
@@ -455,7 +455,7 @@ class Flashtool():
 
 
     def __cfg_platform(self, args):
-        cfg = cfgserver.ConfigServer(self.__conf['Config']['server'], self.working_dir, self.platform_cfg)
+        cfg = cfgserver.ConfigServer(self.__conf['Recipes']['server'], self.working_dir, self.platform_cfg)
         method = {
             'init': cfg.get_initial,
             'update': cfg.update_confs,
