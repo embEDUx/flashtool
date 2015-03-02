@@ -520,6 +520,8 @@ class LocalBuildsError(Exception):
     def __str__(self):
         return repr(self.message)
 
+
+#TODO: Local Builds need a additional files with relationships between architectures and platforms
 class LocalBuilds():
     def __init__(self, path, configured_platforms):
         '''

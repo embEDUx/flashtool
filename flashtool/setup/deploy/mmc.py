@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 from __future__ import print_function
+from flashtool.setup.udev.mmc import get_device
 
 __author__ = 'mahieke'
 
@@ -22,7 +23,30 @@ import hashlib
 import os
 from timeit import default_timer as timer
 import tarfile
-import signal
+
+class MMCNotEnoughSpaceError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return repr(self.message)
+
+
+class MMCSectorsTestError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return repr(self.message)
+
+
+class MMCRecipeMatchError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return repr(self.message)
+
 
 class MMCDeploy(Deploy):
     '''
@@ -38,12 +62,10 @@ class MMCDeploy(Deploy):
         self.platform = platform
         self.builds = builds
         self.auto = auto
-        self.__udev = _get_device()
+        self.__udev = udev.get_device()
         self.__partition_info = None
         self.__mounted_devs = {}
 
-        util.check_permissions(self.__udev[0]['path'])
-        self.__ensure_unmounted([child['path'] for child in self.__udev[1]])
         build_info = self.builds.get_builds_info()
         yaml_info = {}
         self.load_cfg = {}
@@ -135,7 +157,7 @@ class MMCDeploy(Deploy):
             i += 1
 
         if not_enough_space:
-            #TODO: raise an exception
+            raise MMCNotEnoughSpaceError()
             exit(0)
 
     def prepare(self):
@@ -176,7 +198,7 @@ class MMCDeploy(Deploy):
         print(Fore.YELLOW + '   Format partitions {}:'.format(', '.join([p['path'] for p in new_partitions])))
         _format(new_partitions)
 
-        self.__partition_info = device[0]['path'], _get_load_info([part.path for part in partitions])
+        self.__partition_info = device[0]['path'], get_load_info([part.path for part in partitions])
 
         print('')
 
@@ -192,17 +214,14 @@ class MMCDeploy(Deploy):
         print('')
 
         if not self.__partition_info:
-            self.__partition_info = self.__udev[0]['path'], _get_load_info([part['path'] for part in self.__udev[1]])
+            self.__partition_info = self.__udev[0]['path'], get_load_info([part['path'] for part in self.__udev[1]])
 
         # check if existing partitions match with recipe
         if len(self.__partition_info[1]) != len(self.recipe['partitions']):
-            print(Fore.RED + 'Number of existing partitions does not meet with recipe configuration.')
-            #TODO: raise a Exception
-            exit(1)
-
+            raise MMCRecipeMatchError('Number of existing partitions does not meet with recipe configuration.')
         try:
             self.__do_load()
-            self.__umount()
+            self.finish_deployment()
         except KeyboardInterrupt:
             print('')
             print(Fore.YELLOW + '   User interrupt procedure.')
@@ -357,14 +376,6 @@ class MMCDeploy(Deploy):
                     print(Fore.RED + '   {}'.format(e.message))
                     raise
 
-    def __ensure_unmounted(self, devs):
-        for path in devs:
-            for line in open("/proc/mounts"):
-                if path in line:
-                    print('Device {} was mounted:'.format(path))
-                    util.os_call(['umount', path])
-                    print(' --> umount')
-
     def __rollback(self):
         print(Fore.YELLOW + '   Syncing devices...')
         subprocess.call('sync')
@@ -424,10 +435,7 @@ def _check_disk(device):
     os.close(fd)
 
     if hash.hexdigest() != read_hash.hexdigest():
-        print(Fore.RED + '   {} seems to be broken'.format(device))
-        print(Fore.RED + 'ABORT.')
-        # TODO: raise Exception
-        exit(1)
+        raise MMCSectorsTestError('First Byte of {} seems to be broken'.format(device))
     else:
         print(Fore.GREEN + '   Everything seems fine!')
 
@@ -561,52 +569,7 @@ def _format(partitions):
         print(Fore.YELLOW + '   Format command: {}'.format(' '.join(cmd)))
         util.os_call(cmd, allow_user_interrupt=False)
 
-def _get_device(auto=False):
-    '''
-    Static method which tries to get the device information of a mmc device.
-    If the system recognize multiple mmc devices the user is prompted to chose
-    a device.
-    :return: Returns a triple with device dev-path, size of device and list with
-             all dev-path of the partitions
-    '''
-    memory_cards_info = udev.get_active_mmc_info()
-
-    print('Found these devices:')
-
-    devices = []
-
-    i = 0
-    for k, v in memory_cards_info.items():
-        print('{}: {}'.format(i, k))
-        print('    size: {} MB'.format(v['size'] / (1024 * 1024)))
-        print('    part_table: {}'.format(v['part_table']))
-        print('    partitions:')
-        dev_partitions = []
-        for kk, vv in v['partitions'].items():
-            print('      {} ({}, {} MB)'.format(kk, vv['fs_type'], vv['size'] / (1024 * 1024)))
-            dev_partitions.append(vv)
-
-        devices.append(({'path': v['path'], 'size': v['size']}, dev_partitions))
-        i += 1
-
-    print('')
-
-    selection = 0
-
-    if len(devices) > 1:
-        selection = int(util.user_select('Please select a device to continue:', 0, i))
-        print('')
-
-    if not auto:
-        answer = util.user_prompt('Do you want to continue with setup process?', 'Answer', 'YyNn')
-        if re.match('N|n', answer):
-            print(Fore.GREEN + 'USER ABORTED SETUP PROCESS')
-            #TODO: raise Exception
-            exit(0)
-
-    return devices[selection]
-
-def _get_load_info(partitions):
+def get_load_info(partitions):
     '''
     Returns important information about the partitions for load step.
     :param partitions: list with dev-paths of the partitions

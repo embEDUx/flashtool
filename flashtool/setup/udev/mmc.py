@@ -1,3 +1,7 @@
+import re
+from colorama import Fore
+from flashtool import utility as util
+
 __author__ = 'mahieke'
 
 import logging as log
@@ -77,7 +81,6 @@ def guess_devices():
 
     return guessed_devices
 
-
 def get_information(devices):
     info = []
 
@@ -94,6 +97,61 @@ def get_information(devices):
 
     return info
 
+def get_device(auto=False):
+    '''
+    Static method which tries to get the device information of a mmc device.
+    If the system recognize multiple mmc devices the user is prompted to chose
+    a device.
+    :return: Returns a triple with device dev-path, size of device and list with
+             all dev-path of the partitions
+    '''
+    memory_cards_info = get_active_mmc_info()
+
+    print('Found these devices:')
+
+    devices = []
+
+    i = 0
+    for k, v in memory_cards_info.items():
+        print('{}: {}'.format(i, k))
+        print('    size: {} MB'.format(v['size'] / (1024 * 1024)))
+        print('    part_table: {}'.format(v['part_table']))
+        print('    partitions:')
+        dev_partitions = []
+        for kk, vv in v['partitions'].items():
+            print('      {} ({}, {} MB)'.format(kk, vv['fs_type'], vv['size'] / (1024 * 1024)))
+            dev_partitions.append(vv)
+
+        devices.append(({'path': v['path'], 'size': v['size']}, dev_partitions))
+        i += 1
+
+    print('')
+
+    selection = 0
+
+    if len(devices) > 1:
+        selection = int(util.user_select('Please select a device to continue:', 0, i))
+        print('')
+
+    if not auto:
+        answer = util.user_prompt('Do you want to continue with setup process?', 'Answer', 'YyNn')
+        if re.match('N|n', answer):
+            print(Fore.GREEN + 'USER ABORTED SETUP PROCESS')
+            exit(0)
+
+    util.check_permissions(devices[selection][0]['path'])
+    ensure_unmounted([child['path'] for child in devices[selection][1]])
+
+    return devices[selection]
+
+
+def ensure_unmounted(devs):
+    for path in devs:
+        for line in open("/proc/mounts"):
+            if path in line:
+                print('Device {} was mounted:'.format(path))
+                util.os_call(['umount', path])
+                print(' --> umount')
 
 class MMCProfiler(object):
     def __init__(self):
@@ -143,3 +201,5 @@ class MMCProfiler(object):
         log.debug('GUESSING FOLLOWING DEVICES BY HEURISTICS: {}'.format(', '.join(devname)))
 
         return devname
+
+

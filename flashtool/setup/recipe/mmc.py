@@ -9,8 +9,6 @@ from flashtool.setup.constants import mkfs_support
 import _ped
 import re
 
-import parted
-
 
 
 class MMC(Recipe):
@@ -19,6 +17,7 @@ class MMC(Recipe):
     def __init__(self, attributes):
         self.check_attributes(attributes)
         parts = []
+        names = []
         has_max_size = False
         for elem in attributes['partitions']:
             if elem['size'] == max:
@@ -27,9 +26,11 @@ class MMC(Recipe):
                 has_max_size = True
 
             part = Partition(elem)
+            if part.name not in names:
+                names.append(part.name)
+            else:
+                raise RecipeContentException('Name of a partition must be unique!')
             parts.append(part)
-
-        # TODO: check if every name of a partition is unique
 
         attributes['partitions'] = parts
         attributes['load'] = Load(attributes['load'])
@@ -54,9 +55,10 @@ class Partition(Recipe):
             attributes['size'] = self.__to_byte(attributes['size'])
         attributes['name'] = attributes['name'].upper().strip()
 
-        Recipe.__init__(self, attributes)
+        if attributes['name'] == '':
+            raise RecipeContentException('Partition must contain a name.')
 
-        #TODO: check if name is set: must be set
+        Recipe.__init__(self, attributes)
 
         self.__check_fs_type(self.fs_type)
         self.__check_partition_flag(self.flags)

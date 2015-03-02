@@ -12,13 +12,15 @@ from datetime import datetime
 from colorama import init
 from colorama import Fore
 from colorama import Style
+import subprocess
 
 from flashtool.configloader import ConfigLoader
 from flashtool.server import cfgserver
 from flashtool.setup import Setup
 import flashtool.utility as util
 from flashtool.server.buildserver import Buildserver, BuildserverConnectionError
-
+import flashtool.setup.udev.mmc as udev
+from flashtool.setup.constants import mkfs_check
 
 __version__ = '0.0.2'
 __author__ = 'mahieke'
@@ -187,14 +189,14 @@ class Flashtool():
 
         setup_group_general = setup_parser.add_argument_group('General options')
 
-        setup_group_general.add_argument('-s', '--source',
-                                         choices=['local', 'remote'],
-                                         default='remote',
-                                         nargs='?',
-                                         help='Select if product should be fetched from a local directory or from '
-                                              'the buildbot build server. The path or URL to the local directory or '
-                                              'server must be defined in the configuration file \'flashtool.cfg\'.'
-        )
+        # setup_group_general.add_argument('-s', '--source',
+        #                                 choices=['local', 'remote'],
+        #                                 default='remote',
+        #                                 nargs='?',
+        #                                 help='Select if product should be fetched from a local directory or from '
+        #                                      'the buildbot build server. The path or URL to the local directory or '
+        #                                      'server must be defined in the configuration file \'flashtool.cfg\'.'
+        # )
 
         setup_group_general.add_argument('-a', '--auto', action='store_true',
                                          default=False,
@@ -208,12 +210,6 @@ class Flashtool():
                                          default=False,
                                          help='If this argument is set, all downloaded file will be stored at'
                                               'the directory which is configured in the cfg file (Attribute Local).'
-        )
-
-        setup_group_general.add_argument('-fsck', '--filesystem_check',
-                                         action='store_true',
-                                         default=False,
-                                         help='Do a filesystem check on the generated partitions.'
         )
 
         setup_group1 = setup_parser.add_argument_group('Product Group 1 [linux, uboot, misc]',
@@ -260,13 +256,14 @@ class Flashtool():
 
         setup_parser.set_defaults(func=self.__setup)
 
-        fs_check_parser = subparser.add_parser('check_btrfs',
-                                            help='Filesystem check on a mmc with btrfs partitions'
+        fs_check_parser = subparser.add_parser('check_mmc',
+                                            help='Filesystem check on partitions of a mmc device'
         )
 
         fs_check_parser.add_argument('fs_type',
                                      choices=['vfat', 'btrfs', 'ext2', 'ext4'],
-                                     nargs='+',
+                                     nargs='?',
+                                     const='',
                                      help='Filesystem types which should be checked.'
         )
 
@@ -303,6 +300,7 @@ class Flashtool():
 
         args.func(args)
 
+
     def __create_work_dir(self, working_dir):
         self.working_dir = working_dir
         cfg_path = '{}/{}'.format(working_dir, self.cfg)
@@ -317,6 +315,7 @@ class Flashtool():
             else:
                 print(Fore.RED + 'ABORT.')
                 exit()
+
 
     def __configure(self, working_dir):
         self.working_dir = working_dir
@@ -395,8 +394,10 @@ class Flashtool():
 
         supported_platforms = self.__get_platforms()
 
-        if args.platform not in supported_platforms:
-            print(Fore.RED + 'ERROR:')
+        match = next(filter(lambda f: f == args.platform, map(lambda x: x[0], supported_platforms)))
+
+        if not match:
+            print(Fore.RED + 'FAILURE:')
             print(Fore.RED + 'Recipe for platform "{}" could not be found.'.format(args.platform))
             message = ''
             if supported_platforms:
@@ -414,8 +415,32 @@ class Flashtool():
             print(message)
 
             return
+        else:
+            platform, types = next(filter(lambda f: f[0] == args.platform, supported_platforms))
+            yaml_path = '{}/{}/'.format(args.working_dir, self.platform_cfg)
+            if len(types) == 1:
+                if types[0] == '':
+                    yaml_path = yaml_path + '{}.yml'.format(args.platform)
+                else:
+                    yaml_path = yaml_path + '{}_{}.yml'.format(args.platform, types[0])
+            elif len(types) > 1:
+                print('There are multiple recipe files for platform {}.'.format(args.platform))
+                i = 0
+                files = []
+                for t in types:
+                    if t == '':
+                        file = '{}.yml'.format(args.platform)
+                    else:
+                        file = '{}_{}.yml'.format(args.platform, t)
+                    files.append(file)
+                    print('{}:  {}'.format(i, file))
+                    i += 1
+                selection = int(util.user_select('Please select a recipe:', 0, i))
+                yaml_path = yaml_path + '{}'.format(files[selection])
+            else:
+                print(Fore.RED + 'ERROR:')
+                print('Unexpected Error occured: THIS SHOULD NEVER HAPPEN!!!')
 
-        yaml_path = '{}/{}/{}.yml'.format(args.working_dir, self.platform_cfg, args.platform)
 
         if args.source == 'local':
             url = {'dir': self.__conf['Local']['products']}
@@ -439,8 +464,13 @@ class Flashtool():
         platforms = self.__get_platforms()
 
         if platforms:
-            print(Fore.GREEN + 'The following platforms are supported: ' + Fore.YELLOW +
-                  '{}'.format(', '.join(platforms)))
+            print(Fore.GREEN + 'The following platforms are supported:')
+            for platform_info in platforms:
+                print(Fore.YELLOW + '  {}'.format(platform_info[0]))
+                for types in platform_info[1]:
+                    if types:
+                        print(Fore.YELLOW + '    {}'.format(types))
+                print('')
         else:
             print(Fore.RED + 'Found no platform recipe. Please run command ' + Fore.YELLOW + '"conf init" ' +
                   Fore.RED + 'first')
@@ -448,10 +478,21 @@ class Flashtool():
 
     def __get_platforms(self):
         files = os.listdir('{}/{}'.format(self.working_dir, self.platform_cfg))
-        yml_files = filter(lambda file: re.match('.*\.yml$', file) and file != 'template.yml', files)
-        platforms = map(lambda yml_file: yml_file.rstrip('.yml'), yml_files)
+        yml_files = list(filter(lambda file: re.match('.*\.yml$', file) and file != 'template.yml', files))
+        platforms = set(map(lambda yml_file: yml_file.rstrip('.yml').split('_')[0], yml_files))
 
-        return list(platforms)
+        ret_val = []
+        for platform in platforms:
+            types = []
+            for matched_file in filter(lambda x: platform in x, yml_files):
+                if matched_file == '{}.yml'.format(platform):
+                    types.append('')
+                else:
+                    types.append(matched_file.split('_')[1].rstrip('.yml'))
+
+            ret_val.append((platform, types))
+
+        return ret_val
 
 
     def __cfg_platform(self, args):
@@ -483,8 +524,25 @@ class Flashtool():
         return retVal
 
 
-    def __fs_check(self):
-        return
+    def __fs_check(self,args):
+        device, partitions = udev.get_device(True)
+
+        for partition in partitions:
+            fs_type = partition['fs_type']
+            path = partition['path']
+            print('Check partition {}:'.format(path))
+            print('')
+            try:
+                cmd = mkfs_check[fs_type] + [path]
+                if not util.shutil_which(cmd[0]):
+                    print(Fore.YELLOW + 'Could not do filesystem check on partition {}. Filesystem format \'{}\' '
+                                        'is not supported on your system.'.format(fs_type, path))
+                    print('')
+                subprocess.call(cmd)
+            except KeyError:
+                print(Fore.YELLO + 'Could not do filesystem check on partition {}. Filesystem format \'{}\' '
+                                   'is not supported by the flashtool'.format(fs_type, path))
+                print('')
 
 
 def main():
