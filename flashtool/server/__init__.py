@@ -67,7 +67,7 @@ class Git():
 
     def __check_url(self):
         re_git = r'git@(' + _word + ')+:(\/|' + _word + ')+\.git'
-        re_https = r'https:\/\/(' + _word + ')+:(\/|' + _word + ')+\.git'
+        re_https = r'https:\/\/(' + _word + ')+\/(\/|' + _word + ')+\.git'
 
         check = False
 

@@ -87,6 +87,7 @@ class ConfigLoader():
                                                    'Existing value "{}"'.format(value), 'YyNn')
 
                         if re.match(util.create_regex_allowed('Yy'), answer):
+                            print('')
                             new_value = util.user_prompt( 'Type in a value for [{}]->{}\nhelp: {}'.format(section, option[0], option[1]),
                                                           '{} '.format(option[0]))
 
@@ -96,7 +97,8 @@ class ConfigLoader():
 
                 else:
                     new_value = util.user_prompt( 'Type in a value for',
-                                                  '[{}]->{}\nhelp: {}'.format(section, option[0], option[1]))
+                                                  Fore.YELLOW + '   [{}]->{}'.format(section, option[0]) + Fore.RESET +
+                                                                '\nhelp: {}\n'.format(option[1]))
 
                     self.__parser.set(section, option[0], new_value)
                     changed = True

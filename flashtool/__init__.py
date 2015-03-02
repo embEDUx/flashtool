@@ -22,7 +22,7 @@ from flashtool.server.buildserver import Buildserver, BuildserverConnectionError
 import flashtool.setup.udev.mmc as udev
 from flashtool.setup.constants import mkfs_check
 
-__version__ = '0.0.2'
+__version__ = '1.0.0'
 __author__ = 'mahieke'
 
 
@@ -42,21 +42,22 @@ def get_loglvl(verbosity, minimum=3):
 class Flashtool():
     __flashtool_conf = {
         'Recipes': {
-            'keywords': ['server'],
+            'keywords': ['server', 'user'],
             'help': [
-               'Address or URL to a git server which contains yml recipes for different platforms\n'
-               'Must look like: git@{URL-to-server}:{path-to-git-repository}.git'
+               '  Address or URL to a git server which contains yml recipes for different platforms\n'
+               '  Must look like: git@{URL-to-server}:{path-to-git-repository}.git',
+               '  Directory where the user can save own recipe files. Path must not include underscores!'
             ]},
         'Buildbot': {
             'keywords': ['server', 'port'],
             'help': [
-                'Address or URL to a buildbot server. Optional Port must be set as next parameter.',
-                'Port of the web frontend of the buildbot server'
+                '  Address or URL to a buildbot server. Optional Port must be set as next parameter.',
+                '  Port of the web frontend of the buildbot server'
             ]},
         'Local': {
             'keywords': ['products'],
             'help': [
-                'Local path where flashtool should save downloaded products if option is selected.'
+                '  Local path where flashtool should save downloaded products if option is selected.'
             ]},
     }
 
@@ -70,16 +71,12 @@ class Flashtool():
 
         flashtool_dir = '/.flashtool'
 
-        self.conf_dir_option_required = False
         self.working_dir = ''
 
-        if os.path.exists(home + flashtool_dir):
-            self.working_dir = home + flashtool_dir
-        elif os.path.exists(pwd + flashtool_dir):
+        if os.path.exists(pwd + flashtool_dir):
             self.working_dir = pwd + flashtool_dir
         else:
             self.working_dir = home + flashtool_dir
-            self.conf_dir_option_required = True
 
 
     def parse(self):
@@ -96,16 +93,10 @@ class Flashtool():
                             action='count',
                             help='increase output verbosity'
         )
-        if self.conf_dir_option_required:
-            parser.add_argument('-w', '--working_dir',
-                                required=True,
-                                help='Working directory, default is {}'.format(self.working_dir)
-            )
-        else:
-            parser.add_argument('-w', '--working_dir',
-                                required=False,
-                                help='Working directory, default is {}'.format(self.working_dir)
-            )
+        parser.add_argument('-w', '--working_dir',
+                            default=self.working_dir,
+                            help='Working directory, default is {}'.format(self.working_dir)
+        )
 
         subparser = parser.add_subparsers(title='commands',
                                           dest='action'
@@ -113,6 +104,11 @@ class Flashtool():
         subparser.required = True
 
         # get configs from repository
+        init_parser = subparser.add_parser('init',
+                                           help='Initialize flashtool, must be done before using flashtool.')
+
+        init_parser.set_defaults(func=self.__configure)
+
         conf_parser = subparser.add_parser('platform_recipes',
                                            help='Manage platform recipes'
         )
@@ -122,7 +118,7 @@ class Flashtool():
         conf_parser.set_defaults(func=self.__cfg_platform)
 
         # configure flashtool cfg file
-        flashtool_cfg_parser = subparser.add_parser('flashtool_cfg',
+        flashtool_cfg_parser = subparser.add_parser('config',
                                                     help='Manage flashtool config')
 
         flashtool_cfg_parser.add_argument('keywords',
@@ -273,19 +269,7 @@ class Flashtool():
         argcomplete.autocomplete(parser)
         args = parser.parse_args()
 
-        if not args.working_dir:
-            args.working_dir = self.working_dir
-        else:
-            args.working_dir = args.working_dir.rstrip('/')
-
-        self.__create_work_dir(args.working_dir)
-
-        # verbosity of logging
-        log.basicConfig(format='%(asctime)s [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
-                        level=get_loglvl(args.verbosity, 2),
-                        filename='{}/logs/{}-log'.format(args.working_dir, datetime.now()))
-
-        self.__configure(args.working_dir)
+        self.add_working_dir(args.working_dir)
 
         if args.func == self.__setup:
             # user must state all products or none of them
@@ -298,8 +282,30 @@ class Flashtool():
             #     parser.error('Setup: All four products must be stated (linux, uboot, misc, rootfs) when option '
             #                  'source has value "local".')
 
+        if os.path.exists(self.working_dir):
+            cfg_path = '{}/{}'.format(self.working_dir, self.cfg)
+            self.cfg_loader.set_file(cfg_path)
+
+            # Check config file and set unset properties
+            self.__conf = self.cfg_loader.load_config(self.__flashtool_conf)
+            if not os.path.exists('{}/logs'.format(self.working_dir)):
+                os.mkdir('{}/logs'.format(self.working_dir))
+            # verbosity of logging
+            log.basicConfig(format='%(asctime)s [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+                            level=get_loglvl(args.verbosity, 2),
+                            filename='{}/logs/{}-log'.format(self.working_dir, datetime.now()))
+
         args.func(args)
 
+    def add_working_dir(self, w_dir):
+        self.working_dir = w_dir.rstrip('/')
+
+    def check_working_dir(self):
+        if not os.path.exists(self.working_dir):
+            print(Fore.YELLOW + 'Working directory {0} does not exist.\n'
+                  'Please initialize the flashtool first with command:\n'
+                  '  flashtool init {0}'.format(self.working_dir))
+            exit(1)
 
     def __create_work_dir(self, working_dir):
         self.working_dir = working_dir
@@ -317,16 +323,15 @@ class Flashtool():
                 exit()
 
 
-    def __configure(self, working_dir):
-        self.working_dir = working_dir
-        cfg_path = '{}/{}'.format(working_dir, self.cfg)
+    def __configure(self, args):
+        cfg_path = '{}/{}'.format(self.working_dir, self.cfg)
 
-        if not os.path.exists(working_dir):
-            print(Fore.YELLOW + 'Working directory does not exist at {}'.format(working_dir))
-            answer = util.user_prompt('Do you want to setup working directory "{}"'.format(working_dir), 'Answer',
+        if not os.path.exists(self.working_dir):
+            print(Fore.YELLOW + 'Working directory does not exist at {}'.format(self.working_dir))
+            answer = util.user_prompt('Do you want to setup working directory "{}"'.format(self.working_dir), 'Answer',
                                       'YyNn')
             if re.match('[Yy]', answer):
-                os.mkdir(working_dir)
+                os.mkdir(self.working_dir)
             else:
                 print(Fore.RED + 'ABORT.')
                 exit()
@@ -339,6 +344,7 @@ class Flashtool():
 
 
     def __cfg_flashtool(self, args):
+        self.check_working_dir()
         options = args.keywords
         self.cfg_loader.enter_config(self.__flashtool_conf, True, options)
 
@@ -385,6 +391,7 @@ class Flashtool():
 
 
     def __setup(self, args):
+        self.check_working_dir()
         action_values = self.__get_args(args, ['linux', 'uboot', 'misc', 'rootfs'])
 
         log.debug('Setup following products {} for {} (auto = {})'
@@ -416,27 +423,17 @@ class Flashtool():
 
             return
         else:
-            platform, types = next(filter(lambda f: f[0] == args.platform, supported_platforms))
-            yaml_path = '{}/{}/'.format(args.working_dir, self.platform_cfg)
-            if len(types) == 1:
-                if types[0] == '':
-                    yaml_path = yaml_path + '{}.yml'.format(args.platform)
-                else:
-                    yaml_path = yaml_path + '{}_{}.yml'.format(args.platform, types[0])
-            elif len(types) > 1:
+            platform, files = next(filter(lambda f: f[0] == args.platform, supported_platforms))
+            if len(files) == 1:
+                    yaml_path = files[0]
+            elif len(files) > 1:
                 print('There are multiple recipe files for platform {}.'.format(args.platform))
                 i = 0
-                files = []
-                for t in types:
-                    if t == '':
-                        file = '{}.yml'.format(args.platform)
-                    else:
-                        file = '{}_{}.yml'.format(args.platform, t)
-                    files.append(file)
-                    print('{}:  {}'.format(i, file))
+                for t in files:
+                    print('{}:  {}'.format(i, files[i]))
                     i += 1
                 selection = int(util.user_select('Please select a recipe:', 0, i))
-                yaml_path = yaml_path + '{}'.format(files[selection])
+                yaml_path = files[selection]
             else:
                 print(Fore.RED + 'ERROR:')
                 print('Unexpected Error occured: THIS SHOULD NEVER HAPPEN!!!')
@@ -477,18 +474,25 @@ class Flashtool():
 
 
     def __get_platforms(self):
-        files = os.listdir('{}/{}'.format(self.working_dir, self.platform_cfg))
+        self.check_working_dir()
+        recipe_path = '{}/{}/'.format(self.working_dir, self.platform_cfg)
+        user_recipe_path = '{}/'.format(self.__conf['Recipes']['user'].rstrip('/'))
+        files = [recipe_path + file for file in os.listdir(recipe_path)]
+
+        if os.path.exists(user_recipe_path):
+            files += [user_recipe_path + file for file in os.listdir(user_recipe_path)]
+        else:
+            os.mkdir(user_recipe_path)
+            files += [user_recipe_path + file for file in os.listdir(user_recipe_path)]
+
         yml_files = list(filter(lambda file: re.match('.*\.yml$', file) and file != 'template.yml', files))
-        platforms = set(map(lambda yml_file: yml_file.rstrip('.yml').split('_')[0], yml_files))
+        platforms = set(map(lambda yml_file: yml_file.split('/')[-1].rstrip('.yml').split('_')[0], yml_files))
 
         ret_val = []
         for platform in platforms:
             types = []
             for matched_file in filter(lambda x: platform in x, yml_files):
-                if matched_file == '{}.yml'.format(platform):
-                    types.append('')
-                else:
-                    types.append(matched_file.split('_')[1].rstrip('.yml'))
+                types.append(matched_file)
 
             ret_val.append((platform, types))
 
@@ -497,6 +501,7 @@ class Flashtool():
 
     def __cfg_platform(self, args):
         cfg = cfgserver.ConfigServer(self.__conf['Recipes']['server'], self.working_dir, self.platform_cfg)
+
         method = {
             'init': cfg.get_initial,
             'update': cfg.update_confs,
