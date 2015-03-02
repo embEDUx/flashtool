@@ -294,9 +294,9 @@ class Flashtool():
                 parser.error('Setup command needs either all three products to be stated (linux, uboot, misc) or '
                              'none of them.')
 
-            if args.source == 'local' and not (args.linux and args.uboot and args.rootfs):
-                parser.error('Setup: All four products must be stated (linux, uboot, misc, rootfs) when option '
-                             'source has value "local".')
+            # if args.source == 'local' and not (args.linux and args.uboot and args.rootfs):
+            #     parser.error('Setup: All four products must be stated (linux, uboot, misc, rootfs) when option '
+            #                  'source has value "local".')
 
         args.func(args)
 
@@ -387,9 +387,9 @@ class Flashtool():
     def __setup(self, args):
         action_values = self.__get_args(args, ['linux', 'uboot', 'misc', 'rootfs'])
 
-        log.debug('Setup following products {} for {} (source = {}, auto = {}, fsck = {})'
+        log.debug('Setup following products {} for {} (auto = {})'
                   .format(', '.join([k + ':' + v for k, v in action_values.items()]),
-                          args.platform, args.source, args.auto, args.filesystem_check)
+                          args.platform, args.auto)
         )
 
         supported_platforms = self.__get_platforms()
@@ -442,13 +442,13 @@ class Flashtool():
                 print('Unexpected Error occured: THIS SHOULD NEVER HAPPEN!!!')
 
 
-        if args.source == 'local':
-            url = {'dir': self.__conf['Local']['products']}
-            # TODO: delete statement when implemented
-            print(Fore.RED + 'Option \'-s local\' \'--source local\' is not implemented yet!')
-            exit(1)
-        else:
-            url = self.__conf['Buildbot']
+        # if args.source == 'local':
+        #     url = {'dir': self.__conf['Local']['products']}
+        #     # TODO: delete statement when implemented
+        #     print(Fore.RED + 'Option \'-s local\' \'--source local\' is not implemented yet!')
+        #     exit(1)
+        # else:
+        url = self.__conf['Buildbot']
 
         user_dest = None
         if args.Local:
