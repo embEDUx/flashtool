@@ -282,18 +282,25 @@ class Flashtool():
             #     parser.error('Setup: All four products must be stated (linux, uboot, misc, rootfs) when option '
             #                  'source has value "local".')
 
-        if os.path.exists(self.working_dir):
-            cfg_path = '{}/{}'.format(self.working_dir, self.cfg)
-            self.cfg_loader.set_file(cfg_path)
 
-            # Check config file and set unset properties
-            self.__conf = self.cfg_loader.load_config(self.__flashtool_conf)
+        if os.path.exists(self.working_dir):
             if not os.path.exists('{}/logs'.format(self.working_dir)):
                 os.mkdir('{}/logs'.format(self.working_dir))
+
             # verbosity of logging
             log.basicConfig(format='%(asctime)s [%(levelname)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
                             level=get_loglvl(args.verbosity, 2),
                             filename='{}/logs/{}-log'.format(self.working_dir, datetime.now()))
+
+            cfg_path = '{}/{}'.format(self.working_dir, self.cfg)
+
+            self.cfg_loader.set_file(cfg_path)
+
+            # Check config file and set unset properties
+            self.__conf = self.cfg_loader.load_config(self.__flashtool_conf)
+
+
+
 
         args.func(args)
 
@@ -302,25 +309,10 @@ class Flashtool():
 
     def check_working_dir(self):
         if not os.path.exists(self.working_dir):
-            print(Fore.YELLOW + 'Working directory {0} does not exist.\n'
+            print('Working directory {0} does not exist.\n'
                   'Please initialize the flashtool first with command:\n'
                   '  flashtool init {0}'.format(self.working_dir))
             exit(1)
-
-    def __create_work_dir(self, working_dir):
-        self.working_dir = working_dir
-        cfg_path = '{}/{}'.format(working_dir, self.cfg)
-
-        if not os.path.exists(working_dir):
-            print(Fore.YELLOW + 'Working directory does not exist at {}'.format(working_dir))
-            answer = util.user_prompt('Do you want to setup working directory "{}"'.format(working_dir), 'Answer',
-                                      'YyNn')
-            if re.match('[Yy]', answer):
-                os.mkdir(working_dir)
-                os.mkdir('{}/logs'.format(working_dir))
-            else:
-                print(Fore.RED + 'ABORT.')
-                exit()
 
 
     def __configure(self, args):
@@ -359,9 +351,9 @@ class Flashtool():
 
         print('  Retrieving information from Server {}:{}...'.format(self.__conf['Buildbot']['server'], self.__conf['Buildbot']['port']))
         buildbot = Buildserver(self.__conf['Buildbot']['server'], self.__conf['Buildbot']['port'],
-                               self.__get_platforms())
+                               list(map(lambda entry: entry[0], self.__get_platforms())))
 
-        build_info = buildbot.get_builds_info(True)
+        build_info = buildbot.get_builds_info()
         print('  Processing json information...');
         builds = buildbot.get_build_info(build_info, action_values, args.platform)
 
@@ -373,7 +365,7 @@ class Flashtool():
             for kk, vv in v.items():
                 print(Style.BRIGHT + '  {}:'.format(kk))
                 if kk == 'rootfs':
-                    for rfs, files in vv:
+                    for rfs, files in vv.items():
                         print('    {}:'.format(rfs))
                         for file in files:
                             print('      {}'.format(file))
@@ -401,7 +393,12 @@ class Flashtool():
 
         supported_platforms = self.__get_platforms()
 
-        match = next(filter(lambda f: f == args.platform, map(lambda x: x[0], supported_platforms)))
+        try:
+            match = next(filter(lambda f: f == args.platform, map(lambda x: x[0], supported_platforms)))
+        except StopIteration:
+            print(Fore.RED + 'Failure')
+            print('  The given platform {} is not configured with a recipe file.'.format(args.platform))
+            exit(1)
 
         if not match:
             print(Fore.RED + 'FAILURE:')
@@ -485,7 +482,7 @@ class Flashtool():
             os.mkdir(user_recipe_path)
             files += [user_recipe_path + file for file in os.listdir(user_recipe_path)]
 
-        yml_files = list(filter(lambda file: re.match('.*\.yml$', file) and file != 'template.yml', files))
+        yml_files = list(filter(lambda file: re.match('.*\.yml$', file) and 'template.yml' not in file, files))
         platforms = set(map(lambda yml_file: yml_file.split('/')[-1].rstrip('.yml').split('_')[0], yml_files))
 
         ret_val = []

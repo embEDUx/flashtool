@@ -252,6 +252,7 @@ class MMCDeploy(Deploy):
                         'dump': 0,
                         'pas': 0
                     })
+
         configure_chain = self.load_cfg.keys()
         print('GET BUILD FILES {} FOR PLATFORM {}'.format(', '.join(configure_chain), self.platform).upper())
         print('')
