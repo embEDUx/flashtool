@@ -143,15 +143,18 @@ class Flashtool():
         )
         list_builds_parser.add_argument('platform',
                                         metavar='platform',
-                                        nargs='?'
+                                        nargs='?',
+                                        help='Specify a platform name. Only products for this platform will be listed. '
+                                             'If none is selected, information for all platforms will be printed.'
         )
         list_builds_parser.add_argument('--limit', metavar='N',
                                         help='Print top N entries'
         )
-        list_builds_parser.add_argument('-w', '--where',
-                                        choices=['local', 'remote'],
-                                        default='remote'
-        )
+
+        # list_builds_parser.add_argument('-w', '--where',
+        #                                 choices=['local', 'remote'],
+        #                                 default='remote'
+        # )
 
         products_group = list_builds_parser.add_argument_group('Products (optional)',
                                                                description='Select products which should be listed. If none '
@@ -300,8 +303,6 @@ class Flashtool():
             self.__conf = self.cfg_loader.load_config(self.__flashtool_conf)
 
 
-
-
         args.func(args)
 
     def add_working_dir(self, w_dir):
@@ -313,6 +314,23 @@ class Flashtool():
                   'Please initialize the flashtool first with command:\n'
                   '  flashtool init {0}'.format(self.working_dir))
             exit(1)
+
+    def get_conf(self, section, option):
+        if section not in list(self.__flashtool_conf.keys()):
+            raise KeyError('Section {} is not valid for flashtool config.'.format(section))
+
+        if option not in self.__flashtool_conf[section]['keywords']:
+            raise KeyError('Option {} is not valid for the section {} of the flashtool config'.format(option, section))
+
+        try:
+            value = self.__conf[section][option]
+        except TypeError:
+            print(Fore.YELLOW + '[{}]->{} is not set in the configuration file {}'.format(section, option,
+                                                                                          self.cfg_loader.file))
+            print('  Please run \'flashtool init\'')
+            exit(1)
+
+        return value
 
 
     def __configure(self, args):
@@ -349,8 +367,8 @@ class Flashtool():
             action_values = ['linux', 'uboot', 'rootfs', 'misc']
 
 
-        print('  Retrieving information from Server {}:{}...'.format(self.__conf['Buildbot']['server'], self.__conf['Buildbot']['port']))
-        buildbot = Buildserver(self.__conf['Buildbot']['server'], self.__conf['Buildbot']['port'],
+        print('  Retrieving information from Server {}:{}...'.format(self.get_conf('Buildbot','server'), self.get_conf('Buildbot', 'port')))
+        buildbot = Buildserver(self.get_conf('Buildbot', 'server'), self.get_conf('Buildbot', 'port'),
                                list(map(lambda entry: entry[0], self.__get_platforms())))
 
         build_info = buildbot.get_builds_info()
@@ -414,7 +432,7 @@ class Flashtool():
 
             message = 'Or you must define a new recipe file ' + Fore.YELLOW + "{}.yml".format(args.platform)
             message += Fore.RESET + ' at directory ' + Fore.YELLOW + '"{}/{}" or repository "{}".' \
-                .format(self.working_dir, self.platform_cfg, self.__conf['Recipes']['server'])
+                .format(self.working_dir, self.platform_cfg, self.get_conf('Recipes', 'server'))
 
             print(message)
 
@@ -446,7 +464,7 @@ class Flashtool():
 
         user_dest = None
         if args.Local:
-            user_dest = self.__conf['Local']['products']
+            user_dest = self.get_conf('Local', 'products')
             if not os.path.exists(user_dest):
                 os.mkdir(user_dest, mode=0o777)
 
@@ -473,7 +491,7 @@ class Flashtool():
     def __get_platforms(self):
         self.check_working_dir()
         recipe_path = '{}/{}/'.format(self.working_dir, self.platform_cfg)
-        user_recipe_path = '{}/'.format(self.__conf['Recipes']['user'].rstrip('/'))
+        user_recipe_path = '{}/'.format(self.get_conf('Recipes', 'user').rstrip('/'))
         files = [recipe_path + file for file in os.listdir(recipe_path)]
 
         if os.path.exists(user_recipe_path):
@@ -497,7 +515,7 @@ class Flashtool():
 
 
     def __cfg_platform(self, args):
-        cfg = cfgserver.ConfigServer(self.__conf['Recipes']['server'], self.working_dir, self.platform_cfg)
+        cfg = cfgserver.ConfigServer(self.get_conf('Recipes', 'server'), self.working_dir, self.platform_cfg)
 
         method = {
             'init': cfg.get_initial,

@@ -8,6 +8,7 @@ import flashtool.setup.udev.mmc as udev
 from flashtool.setup.deploy import Deploy
 import flashtool.utility as util
 from flashtool.setup.constants import mkfs_support
+from flashtool.setup.deploy.load import get_products_by_recipe_user_input
 from flashtool.setup.deploy.templateloader import fstab_info
 from flashtool.setup.deploy.templateloader import generate_fstab
 from flashtool.setup.deploy.templateloader import get_fstab_fstype
@@ -66,67 +67,7 @@ class MMCDeploy(Deploy):
         self.__partition_info = None
         self.__mounted_devs = {}
 
-        build_info = self.builds.get_builds_info()
-        yaml_info = {}
-        self.load_cfg = {}
-
-        # extract information for loading products to platform
-        for product_name, values in recipe.load:
-
-            prod = product_name.lower().split('_')
-            product = prod[0]
-
-            if product in actions:
-                name = ''
-                if len(prod) == 1:
-                    name = product
-                elif len(prod) == 2:
-                    name = prod[1]
-
-                reg_name = actions[product]
-                content = {}
-
-                if yaml_info.get(product):
-                    yaml_info[product].update({
-                        name: values
-                    })
-                else:
-                    yaml_info.update({
-                        product : {
-                            'r_name': reg_name,
-                            name: values
-                        }
-                    })
-
-        load_order = ['rootfs', 'uboot', 'linux', 'misc']
-        for product in load_order:
-            if product not in yaml_info.keys():
-                continue
-
-            value = yaml_info[product]
-            file_info = self.builds.get_build_info(build_info, [product], self.platform)
-            file_types = [i for i in value.keys() if i != 'r_name']
-
-            a = max(len(product),len(reg_name),len(', '.join(file_types)))
-
-            print(Fore.YELLOW + '   +-{}-+'.format('-'*(12+a)))
-            for s in [('product',product), ('reg_name', reg_name), ('file_types', ', '.join(file_types))]:
-                st = '   | {:12}'.format(s[0] + ':') + '{:<' + str(a) + '} |'
-                print(Fore.YELLOW + st.format(s[1]))
-
-            print(Fore.YELLOW + '   +-{}-+'.format('-'*(12+a)))
-
-            files = self.builds.get_files_path(file_info, reg_name, [(product, file_types)], self.auto)[0][1]
-
-            self.load_cfg[product] = []
-            for f_type, file in files:
-                self.load_cfg[product].append({
-                    'f_type': f_type,
-                    'yaml': value[f_type],
-                    'file': file,
-                    'size': int(self.builds.get_file_size(file))
-                })
-            print('')
+        self.load_cfg = get_products_by_recipe_user_input(recipe, actions, builds, platform, auto)
 
         sizes = [1024*1024]
         for entry in self.recipe['partitions']:
