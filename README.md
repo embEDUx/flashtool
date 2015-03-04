@@ -11,6 +11,7 @@ __System:__
 - virtualenv
 - libudev >= 151
 - libparted
+- gcc
 - git
 
 __Python packages:__
@@ -31,19 +32,19 @@ __Python packages:__
 __Installation Ubuntu/Debian:__
 
 ```sh
-$> apt-get install python3python3-dev python-virtualenvironment libudev-dev libparted git
+$> apt-get install gcc python3 python3-dev python-virtualenvironment libudev-dev libparted git
 ```
 
 __Installation Arch Linux:__
 
 ```sh
-$> pacman -S python3 python-virtualenv libsystemd parted git
+$> pacman -S gcc python3 python-virtualenv libsystemd parted git
 ```
 
 __Installation Fedora Linux:__
 
 ```sh
-$> yum -S ... // TO BE CONTINUED
+$> yum install gcc python3 python3-devel python-virtualenv udev parted git
 ```
 
 __Installation Python:__
