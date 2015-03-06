@@ -75,3 +75,31 @@ def get_products_by_recipe_user_input(recipe, actions, builds, platform, auto):
         print('')
 
     return load_cfg
+
+import crypt
+import getpass
+import subprocess
+import os
+
+def set_root_password(path_to_rootfs):
+    path = '{}/etc/shadow'.format(path_to_rootfs.rstrip('/'))
+    if not os.path.exists(path):
+        raise FileNotFoundError('Could not find {}'.format(path))
+
+    print('')
+    print('Please set a root password for the system or press enter for default password [default \'toor\']:')
+    pw = getpass.getpass()
+
+    if pw == '':
+        pw = 'toor'
+
+    subprocess.call(['sed', '-i', '1d', path])
+    salt_size = 16
+    salt = os.urandom(salt_size).decode("ISO-8859-1").replace('\n', '').replace('\r', '')
+    salt_string = '$6${}$'.format(salt)
+    encrypted_pw = crypt.crypt(pw, salt_string)
+    shadow_string = 'root:{}:10770:0:::::\n'.format(encrypted_pw)
+
+    with open(path, 'a') as shadow:
+        shadow.write(shadow_string)
+

@@ -9,6 +9,7 @@ from flashtool.setup.deploy import Deploy
 import flashtool.utility as util
 from flashtool.setup.constants import mkfs_support
 from flashtool.setup.deploy.load import get_products_by_recipe_user_input
+from flashtool.setup.deploy.load import set_root_password
 from flashtool.setup.deploy.templateloader import fstab_info
 from flashtool.setup.deploy.templateloader import generate_fstab
 from flashtool.setup.deploy.templateloader import get_fstab_fstype
@@ -291,6 +292,9 @@ class MMCDeploy(Deploy):
                 })
 
             generate_fstab(fstab, tab_dest)
+
+        set_root_password('/tmp/flashtool/{}'.format(tab_dev.split('/')[-1]))
+
 
     def finish_deployment(self):
         print(Fore.YELLOW + '   Nearly finished. Syncing device...')
