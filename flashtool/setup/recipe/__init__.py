@@ -45,7 +45,7 @@ class Recipe():
 
 
 class Load(Recipe):
-    attr = ['Rootfs', 'Linux_Root', 'Linux_Boot', 'Linux_Config', 'Uboot', 'Misc_Root', 'Misc_Boot']
+    attr = ['Rootfs_Rootfs', 'Rootfs_Portage', 'Linux_Root', 'Linux_Boot', 'Linux_Config', 'Uboot', 'Misc_Root', 'Misc_Boot']
 
     def __init__(self, attributes):
         self.check_attributes(attributes)

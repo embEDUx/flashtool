@@ -33,6 +33,14 @@ class BuildserverPackageError(Exception):
         return repr(self.message)
 
 
+class BuildserverFilesNotFound(Exception):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return repr(self.message)
+
+
 class Buildserver():
     def __init__(self, address, port, configured_platforms, dest=None):
         '''
@@ -153,6 +161,24 @@ class Buildserver():
 
         return meta["Content-Length"]
 
+    def get_versions_filterd_by_types(self, files, versions, types):
+        '''
+        Returns a list with versions.
+        :param files:
+        :param versions:
+        :param types:
+        :return:
+        '''
+        ret_val = []
+        for version in versions:
+            types_per_file = set(map(lambda t: t.split('_')[-1].split('.')[0], filter(lambda f: version in f, files)))
+
+            if set(types) == types_per_file:
+                ret_val.append(version)
+
+        return ret_val
+
+
     def get_files_path(self, file_info, reg_name, file_types, auto):
         '''
 
@@ -164,18 +190,19 @@ class Buildserver():
         '''
         for platform, products_info in file_info.items():
             for product, unsorted_files in products_info.items():
+                f_types = next(filter(lambda x: product in x[0], file_types))
+
                 if product == 'rootfs':
                     files = ['rootfs/{}/{}'.format(k, e) for k,v in unsorted_files.items() for e in v]
                 else:
                     files = ['{}/{}/{}'.format(product, platform, e) for e in unsorted_files]
 
-                # check if file is available on server
-                #files = [f for f in files if self.is_file_available(f)]
-
                 str_match = '.*{}.*'.format(reg_name)
                 re_file = re.compile(str_match)
                 matched_files = list(filter(lambda f_name: re_file.match(f_name), files))
                 versions = sorted(set([f[:f.rfind('_')] for f in matched_files]))
+
+                versions = self.get_versions_filterd_by_types(matched_files, versions, f_types[1])
 
                 #sort via date stamp of file
 
@@ -204,6 +231,9 @@ class Buildserver():
                 elif len(versions) == 1:
                     print(Fore.YELLOW + '  Found one version for product {} with regex {}'.format(product, str_match))
                     version = versions[0]
+                else:
+                    raise BuildserverFilesNotFound('Could not find files for product {} (types: {}, platform {})'
+                                                   .format(product, f_types[1], platform))
 
                 print(Fore.GREEN + '  -> Selected version: {}:'.format(version.split('/')[-1]))
 
