@@ -1,7 +1,5 @@
 # embEDUx Flash Tool
 
-TODO ...Describtion...
-
 ## Requirements
 
 __System:__
