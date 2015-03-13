@@ -1,5 +1,6 @@
 __author__ = 'mahieke'
 from colorama import Fore
+import hashlib
 
 def get_products_by_recipe_user_input(recipe, actions, builds, platform, auto):
     '''
@@ -117,8 +118,18 @@ import crypt
 import getpass
 import subprocess
 import os
+from Crypto.Random import get_random_bytes
+import datetime
 
 def set_root_password(path_to_rootfs):
+    '''
+    User can set a root password for the linux system.
+    The entry will be saved at /etc/shadow of the root
+    filesystem.
+
+    :param path_to_rootfs: path to the rootfs
+    :return:
+    '''
     path = '{}/etc/shadow'.format(path_to_rootfs.rstrip('/'))
     if not os.path.exists(path):
         raise FileNotFoundError('Could not find {}'.format(path))
@@ -131,11 +142,15 @@ def set_root_password(path_to_rootfs):
         pw = 'toor'
 
     subprocess.call(['sed', '-i', '1d', path])
-    salt_size = 16
-    salt = os.urandom(salt_size).decode("ISO-8859-1").replace('\n', '').replace('\r', '')
-    salt_string = '$6${}$'.format(salt)
-    encrypted_pw = crypt.crypt(pw, salt_string)
-    shadow_string = 'root:{}:10770:0:::::\n'.format(encrypted_pw)
+
+    # salt will be generated automatically
+    encrypted_pw = crypt.crypt(pw)
+
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    today = datetime.datetime.today()
+    days = (today - epoch).days
+
+    shadow_string = 'root:{}:{}:::::\n'.format(encrypted_pw, days)
 
     with open(path, 'a') as shadow:
         shadow.write(shadow_string)

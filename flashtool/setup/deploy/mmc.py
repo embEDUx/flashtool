@@ -294,7 +294,6 @@ class MMCDeploy(Deploy):
 
         set_root_password('/tmp/flashtool/{}'.format(tab_dev.split('/')[-1]))
 
-
     def finish_deployment(self):
         print(Fore.YELLOW + '   Nearly finished. Syncing device...')
         subprocess.call('sync')
