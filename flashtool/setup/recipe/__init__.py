@@ -19,7 +19,7 @@ class RecipeImportException(Exception):
         return repr(self.message)
 
 
-class Recipe():
+class YAML():
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, attributes):
@@ -44,7 +44,7 @@ class Recipe():
         return '{} ({})'.format(self.__class__.__name__, self.__dict__)
 
 
-class Load(Recipe):
+class Load(YAML):
     attr = ['Rootfs_Rootfs', 'Rootfs_Portage', 'Linux_Root', 'Linux_Boot', 'Linux_Config', 'Uboot', 'Misc_Root', 'Misc_Boot']
 
     def __init__(self, attributes):
@@ -54,7 +54,7 @@ class Load(Recipe):
         for k, v in attributes.items():
             if v:
                 new_attributes[k] = Product(k, v)
-        Recipe.__init__(self, new_attributes)
+        YAML.__init__(self, new_attributes)
 
 
 class Product():

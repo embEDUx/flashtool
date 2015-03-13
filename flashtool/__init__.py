@@ -14,7 +14,7 @@ from colorama import Fore
 from colorama import Style
 import subprocess
 
-from flashtool.configloader import ConfigLoader
+from flashtool.configmanager import ConfigManager
 from flashtool.server import cfgserver
 from flashtool.setup import Setup
 import flashtool.utility as util
@@ -63,7 +63,7 @@ class Flashtool():
 
     platform_cfg = 'platforms'
     cfg = 'flashtool.cfg'
-    cfg_loader = ConfigLoader()
+    cfg_loader = ConfigManager()
 
     def __init__(self):
         home = expanduser("~")

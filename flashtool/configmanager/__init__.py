@@ -9,7 +9,7 @@ import configparser
 __author__ = 'mahieke'
 
 
-class ConfigLoader():
+class ConfigManager():
     """
     Class which reads config files and manage them
 

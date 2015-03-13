@@ -1,6 +1,6 @@
 __author__ = 'mahieke'
 
-from flashtool.setup.recipe import Recipe
+from flashtool.setup.recipe import YAML
 from flashtool.setup.recipe import Load
 from flashtool.setup.recipe import RecipeContentException
 import flashtool.utility as util
@@ -11,7 +11,7 @@ import re
 
 
 
-class MMC(Recipe):
+class MMC(YAML):
     attr = ['partitions', 'partition_table', 'load']
 
     def __init__(self, attributes):
@@ -36,7 +36,7 @@ class MMC(Recipe):
         attributes['load'] = Load(attributes['load'])
         self.check_attributes(attributes)
         self.__check_partition_table(attributes['partition_table'])
-        Recipe.__init__(self, attributes)
+        YAML.__init__(self, attributes)
 
 
     def __check_partition_table(self, part_table):
@@ -46,7 +46,7 @@ class MMC(Recipe):
             raise RecipeContentException('Partition table {} stated in document is not supported!'.format(part_table))
 
 
-class Partition(Recipe):
+class Partition(YAML):
     attr = ['name', 'size', 'fs_type', 'mount_point', 'mount_opts', 'flags']
 
     def __init__(self, attributes):
@@ -58,7 +58,7 @@ class Partition(Recipe):
         if attributes['name'] == '':
             raise RecipeContentException('Partition must contain a name.')
 
-        Recipe.__init__(self, attributes)
+        YAML.__init__(self, attributes)
 
         self.__check_fs_type(self.fs_type)
         self.__check_partition_flag(self.flags)

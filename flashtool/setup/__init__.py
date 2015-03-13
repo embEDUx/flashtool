@@ -6,9 +6,6 @@ from flashtool.setup.recipe import RecipeImportException
 from flashtool.setup.recipe import RecipeContentException
 from flashtool.setup.setupfactory import *
 from flashtool.server.buildserver import Buildserver, LocalBuilds
-import flashtool.utility as util
-from colorama import Fore
-import re
 
 
 class Setup():
@@ -60,7 +57,7 @@ class Setup():
 
 def _import_recipe_class(name):
     """import setup recipe class """
-    from flashtool.setup.recipe import Recipe
+    from flashtool.setup.recipe import YAML
     import importlib
 
     path = "flashtool.setup.recipe."
@@ -73,7 +70,7 @@ def _import_recipe_class(name):
     try:
         imp = importlib.import_module(path + python_name)
         recipe_class = imp.__entry__
-        if issubclass(recipe_class, Recipe):
+        if issubclass(recipe_class, YAML):
             return recipe_class
         else:
             raise RecipeImportException('Recipe class "{}" must inherit from class "recipe"!'.format(recipe_class))

@@ -1,6 +1,5 @@
 from __future__ import unicode_literals
 from __future__ import print_function
-from flashtool.setup.udev.mmc import get_device
 
 __author__ = 'mahieke'
 
@@ -68,7 +67,7 @@ class MMCDeploy(Deploy):
         self.__partition_info = None
         self.__mounted_devs = {}
 
-        self.load_cfg = get_products_by_recipe_user_input(recipe, actions, builds, platform, auto)
+        self.load_cfg = get_products_by_recipe_user_input(recipe.load, actions, builds, platform, auto)
 
         sizes = [1024*1024]
         for entry in self.recipe['partitions']:

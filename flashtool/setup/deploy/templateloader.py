@@ -38,6 +38,9 @@ class fstab_object(object):
         #uuid, mountpoint, fstype, dump, pas, options='defaults')
         for key in kwargs.keys():
             if key in self.args:
+                if key == 'options' and kwargs[key] == '':
+                    kwargs[key] = 'defaults'
+
                 self.__dict__[key] = kwargs[key]
 
     def __getattr__(self, at):
