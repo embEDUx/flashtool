@@ -24,6 +24,8 @@ setup(
     author="Manuel Hieke",
     author_email="mahieke90@googlemail.com",
     packages=find_packages(),
+    package_dir={'flashtool':'flashtool'},
+    package_data={'flashtool': ['templates/fstab.tpl']},
     keywords="embedded flash",
     entry_points={
         'console_scripts': [

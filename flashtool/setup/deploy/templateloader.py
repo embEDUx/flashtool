@@ -7,7 +7,7 @@ from colorama import Fore
 def generate_fstab(info, destination):
     print(Fore.YELLOW + '   Generate fstab for device:')
     env = Environment(loader=PackageLoader('flashtool', 'templates'))
-    template = env.get_template('fstab')
+    template = env.get_template('fstab.tpl')
     stream = template.stream(info=info)
     file = '{}/etc/fstab'.format(destination.rstrip('/'))
     stream.dump(file)
