@@ -1,6 +1,5 @@
 __author__ = 'mahieke'
 from colorama import Fore
-import hashlib
 
 def get_products_by_recipe_user_input(recipe, actions, builds, platform, auto):
     '''
@@ -118,7 +117,6 @@ import crypt
 import getpass
 import subprocess
 import os
-from Crypto.Random import get_random_bytes
 import datetime
 
 def set_root_password(path_to_rootfs):
