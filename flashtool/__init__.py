@@ -50,7 +50,9 @@ class Flashtool():
             'keywords': ['server', 'user'],
             'help': [
                '  Address or URL to a git server which contains yml recipes for different platforms\n'
-               '  Must look like: git@{URL-to-server}:{path-to-git-repository}.git',
+               '  Must look like: git@{URL-to-server}:{path-to-git-repository}.git\n'
+               '  or \n'
+               '  https://{URL-to-server}/{path-to-git-repository}.git\n',
                '  Directory where the user can save own recipe files. Path must not include underscores!'
             ]},
         'Buildbot': {
@@ -425,15 +427,21 @@ class Flashtool():
                 if kk == 'rootfs':
                     for rfs, files in vv.items():
                         print('    {}:'.format(rfs))
-                        for file in files:
-                            print('      {}'.format(file))
+                        file_groups = sorted(set((f[:f.rfind('_')] for f in files)))
+
+                        for file in file_groups:
+                            types = set(list((f[f.rfind('_'):] for f in files if file in f)))
+                            if len(types) > 1:
+                                print('      {} (file types: {})'.format(file, ' | '.join(types)))
+                            elif len(types) == 1:
+                                print('      {}{}'.format(file, list(types)[0]))
                 else:
                     files = sorted(set((f[:f.rfind('_')] for f in vv)))
 
                     for file in files:
                         types = set(list((f[f.rfind('_'):] for f in vv if file in f)))
                         if len(types) > 1:
-                            print('    {} (file types: {})'.format(file, ' | '.join(types)))
+                            print('    {} \n      (file types: {})'.format(file, ' | '.join(types)))
                         elif len(types) == 1:
                             print('    {}{}'.format(file, list(types)[0]))
 
@@ -660,9 +668,16 @@ def main():
                             'or update your recipe file with \'flashtool platform_recipes update\' if you have '
                             'an old version of the recipe files.')
     except Exception as e:
+        logfile = '{}/uncaught_exceptions'.format(tool.working_dir)
+        print(Fore.RED + 'A unhandled exception occurred. You can see the exeception in \'{}\''.format(logfile))
         import traceback
         tb = traceback.format_exc()
-        with open('{}/uncaught_exceptions'.format(tool.working_dir), 'a') as file:
+        with open(logfile, 'a') as file:
+            file.write(str(datetime.now()))
+            file.wirte('\n')
             file.write(tb)
+            file.write('\n')
+            file.write('------------------------------------------------------------------')
+            file.write('\n')
 
 
