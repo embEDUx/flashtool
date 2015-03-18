@@ -674,7 +674,7 @@ def main():
         tb = traceback.format_exc()
         with open(logfile, 'a') as file:
             file.write(str(datetime.now()))
-            file.wirte('\n')
+            file.write('\n')
             file.write(tb)
             file.write('\n')
             file.write('------------------------------------------------------------------')
