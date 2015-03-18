@@ -5,4 +5,5 @@
  PyYAML>=3.11
  jinja2
  requests
+ pycrypto
  git+https://github.com/rhinstaller/pyparted.git@pyparted-3.10.2#egg=pyparted
