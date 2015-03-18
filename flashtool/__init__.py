@@ -40,7 +40,12 @@ def get_loglvl(verbosity, minimum=3):
 
 
 class Flashtool():
-    __flashtool_conf = {
+    """
+    Entry class for the flashtool. It will manage the command line input with argparse.
+    """
+
+    # Sections and Options for the flashtool configuration file.
+    flashtool_conf = {
         'Recipes': {
             'keywords': ['server', 'user'],
             'help': [
@@ -66,6 +71,10 @@ class Flashtool():
     cfg_loader = ConfigManager()
 
     def __init__(self):
+        '''
+        Will set the attribute working_dir with default values.
+        :return:
+        '''
         home = expanduser("~")
         pwd = os.getcwd()
 
@@ -78,8 +87,11 @@ class Flashtool():
         else:
             self.working_dir = home + flashtool_dir
 
-
     def parse(self):
+        '''
+        Argparse routine. Will handle the command line input.
+        :return: None
+        '''
         # Argument parser
         parser = argparse.ArgumentParser(
             description='A utility that allows to flash several embedded devices with different versions of u-boot, kernel and rootFS')
@@ -122,14 +134,14 @@ class Flashtool():
                                                     help='Manage flashtool config')
 
         flashtool_cfg_parser.add_argument('keywords',
-                                          choices=list(self.__flashtool_conf.keys()) + [''],
+                                          choices=list(self.flashtool_conf.keys()) + [''],
                                           nargs='*',
                                           default='',
                                           help='Options which should be configured. '
                                                'All option will be asked for configuration, if not given'
         )
 
-        flashtool_cfg_parser.set_defaults(func=self.__cfg_flashtool)
+        flashtool_cfg_parser.set_defaults(func=self.configure_flashtool)
 
         # list_platforms
         list_platforms_parser = subparser.add_parser('list_platforms',
@@ -212,29 +224,30 @@ class Flashtool():
         )
 
         setup_group1 = setup_parser.add_argument_group('Product Group 1 [linux, uboot, misc]',
-                                                       description='If no product options are given, flashtool will '
-                                                                   'fetch the latest file of a product in '
-                                                                   'lexicographical order. The argument of an option '
-                                                                   'will be interpreted as regex .*{string}.*. If this '
-                                                                   'string matches for multiple will handle this '
-                                                                   'situation dependent to the -a/--auto flag '
-                                                                   '(see description above).'
+                                                       description='The argument of an option will be interpreted as '
+                                                                   'regex .*{string}.*. If this string matches for '
+                                                                   'multiple will handle this situation dependent '
+                                                                   'to the -a/--auto flag (see description -a Flag). '
+                                                                   'The default value for an option is \'\''
         )
 
         setup_group1.add_argument('-l', '--linux',
                                   metavar='version',
                                   required=False,
-                                  help='Setup linux kernel.'
+                                  default='',
+                                  help='Set linux kernel version.'
         )
         setup_group1.add_argument('-u', '--uboot',
                                   metavar='version',
                                   required=False,
-                                  help='Setup uboot.'
+                                  default='',
+                                  help='Set uboot version.'
         )
         setup_group1.add_argument('-m', '--misc',
                                   metavar='version',
                                   required=False,
-                                  help='Setup misc files.'
+                                  default='',
+                                  help='Select misc files.'
         )
 
         setup_group2 = setup_parser.add_argument_group('Product Group 2 [rootfs]',
@@ -246,7 +259,8 @@ class Flashtool():
 
         setup_group2.add_argument('-r', '--rootfs',
                                   metavar='name',
-                                  help='Select rootfs'
+                                  help='Select rootfs',
+                                  default=''
         )
 
         setup_parser.add_argument('platform',
@@ -272,19 +286,7 @@ class Flashtool():
         argcomplete.autocomplete(parser)
         args = parser.parse_args()
 
-        self.add_working_dir(args.working_dir)
-
-        if args.func == self.__setup:
-            # user must state all products or none of them
-            if not (args.linux and args.uboot) \
-                    and (args.linux or args.uboot):
-                parser.error('Setup command needs either all three products to be stated (linux, uboot, misc) or '
-                             'none of them.')
-
-            # if args.source == 'local' and not (args.linux and args.uboot and args.rootfs):
-            #     parser.error('Setup: All four products must be stated (linux, uboot, misc, rootfs) when option '
-            #                  'source has value "local".')
-
+        self.set_working_dir(args.working_dir)
 
         if os.path.exists(self.working_dir):
             if not os.path.exists('{}/logs'.format(self.working_dir)):
@@ -300,15 +302,25 @@ class Flashtool():
             self.cfg_loader.set_file(cfg_path)
 
             # Check config file and set unset properties
-            self.__conf = self.cfg_loader.load_config(self.__flashtool_conf)
+            self.conf = self.cfg_loader.load_config(self.flashtool_conf)
 
 
         args.func(args)
 
-    def add_working_dir(self, w_dir):
+    def set_working_dir(self, w_dir):
+        '''
+        setter for the member working_dir
+        :param w_dir: working directory path
+        :return: None
+        '''
         self.working_dir = w_dir.rstrip('/')
 
     def check_working_dir(self):
+        '''
+        Check if working directory exists. If not it will terminate the program with
+        a Error Message.
+        :return: None
+        '''
         if not os.path.exists(self.working_dir):
             print('Working directory {0} does not exist.\n'
                   'Please initialize the flashtool first with command:\n'
@@ -316,14 +328,26 @@ class Flashtool():
             exit(1)
 
     def get_conf(self, section, option):
-        if section not in list(self.__flashtool_conf.keys()):
+        '''
+        Helper method to retrieve values from the conf dictionary.
+        It checks if section and option is specified in flashtoo__conf.
+
+        If section or option does not exist it will raise an exception.
+        If conf[section][option] does not exist it will terminate the programm with
+        an error Message.
+
+        :param section: Configuration Section
+        :param option:  Option of a Section
+        :return: Returns the value type:str
+        '''
+        if section not in list(self.flashtool_conf.keys()):
             raise KeyError('Section {} is not valid for flashtool config.'.format(section))
 
-        if option not in self.__flashtool_conf[section]['keywords']:
+        if option not in self.flashtool_conf[section]['keywords']:
             raise KeyError('Option {} is not valid for the section {} of the flashtool config'.format(option, section))
 
         try:
-            value = self.__conf[section][option]
+            value = self.conf[section][option]
         except TypeError:
             print(Fore.YELLOW + '[{}]->{} is not set in the configuration file {}'.format(section, option,
                                                                                           self.cfg_loader.file))
@@ -332,8 +356,14 @@ class Flashtool():
 
         return value
 
-
     def __configure(self, args):
+        '''
+        Will manage the flashtool config file via the configmanager object.
+        It will check the config file and set unset properties, This method
+        for initializing the flashtool.
+        :param args: Is only need for the call of the module argparse
+        :return: None
+        '''
         cfg_path = '{}/{}'.format(self.working_dir, self.cfg)
 
         if not os.path.exists(self.working_dir):
@@ -349,17 +379,27 @@ class Flashtool():
         self.cfg_loader.set_file(cfg_path)
 
         # Check config file and set unset properties
-        self.cfg_loader.enter_config(self.__flashtool_conf)
-        self.__conf = self.cfg_loader.load_config(self.__flashtool_conf)
+        self.cfg_loader.enter_config(self.flashtool_conf)
+        self.conf = self.cfg_loader.load_config(self.flashtool_conf)
 
-
-    def __cfg_flashtool(self, args):
+    def configure_flashtool(self, args):
+        '''
+        Allows user to reconfigure options of the flashtool
+        with the configmanager object.
+        :param args: Arguments given by arparse, must contain a attribute 'keywords'.
+        :return: None
+        '''
         self.check_working_dir()
         options = args.keywords
-        self.cfg_loader.enter_config(self.__flashtool_conf, True, options)
-
+        self.cfg_loader.enter_config(self.flashtool_conf, True, options)
 
     def __list_builds(self, args):
+        '''
+        Retrieves selected information from the Buildbot server via Buildserver object.
+        The information will be printed on the console.
+        :param args:
+        :return:
+        '''
         actions = self.__get_args(args, ['linux', 'uboot', 'misc', 'rootfs'])
         action_values = [a for a in actions if getattr(args, a)]
 
@@ -369,7 +409,7 @@ class Flashtool():
 
         print('  Retrieving information from Server {}:{}...'.format(self.get_conf('Buildbot','server'), self.get_conf('Buildbot', 'port')))
         buildbot = Buildserver(self.get_conf('Buildbot', 'server'), self.get_conf('Buildbot', 'port'),
-                               list(map(lambda entry: entry[0], self.__get_platforms())))
+                               list(map(lambda entry: entry[0], self.get_platforms())))
 
         build_info = buildbot.get_builds_info()
         print('  Processing json information...');
@@ -399,8 +439,13 @@ class Flashtool():
 
                 print('')
 
-
     def __setup(self, args):
+        '''
+        Setup routine entry point. Will check the command line input first and starts
+        calls the setup method of the Setup object.
+        :param args: Parsed arguments from argparse
+        :return: None
+        '''
         self.check_working_dir()
         action_values = self.__get_args(args, ['linux', 'uboot', 'misc', 'rootfs'])
 
@@ -409,7 +454,7 @@ class Flashtool():
                           args.platform, args.auto)
         )
 
-        supported_platforms = self.__get_platforms()
+        supported_platforms = self.get_platforms()
 
         try:
             match = next(filter(lambda f: f == args.platform, map(lambda x: x[0], supported_platforms)))
@@ -455,12 +500,12 @@ class Flashtool():
 
 
         # if args.source == 'local':
-        #     url = {'dir': self.__conf['Local']['products']}
+        #     url = {'dir': self.conf['Local']['products']}
         #     # TODO: delete statement when implemented
         #     print(Fore.RED + 'Option \'-s local\' \'--source local\' is not implemented yet!')
         #     exit(1)
         # else:
-        url = self.__conf['Buildbot']
+        url = self.conf['Buildbot']
 
         user_dest = None
         if args.Local:
@@ -471,9 +516,13 @@ class Flashtool():
         setup = Setup(url, action_values, yaml_path, args.auto, args.platform, user_dest)
         setup.setup()
 
-
     def __list_platforms(self, args):
-        platforms = self.__get_platforms()
+        '''
+        Prints user all valid platforms.
+        :param args: parsed arguments from argparse
+        :return: None
+        '''
+        platforms = self.get_platforms()
 
         if platforms:
             print(Fore.GREEN + 'The following platforms are supported:')
@@ -487,8 +536,12 @@ class Flashtool():
             print(Fore.RED + 'Found no platform recipe. Please run command ' + Fore.YELLOW + '"conf init" ' +
                   Fore.RED + 'first')
 
-
-    def __get_platforms(self):
+    def get_platforms(self):
+        '''
+        Checks working directory and user recipe path for recipes and
+        retrieves for each platform the amount of recipe files.
+        :return: List with platform, recipe files tuple
+        '''
         self.check_working_dir()
         recipe_path = '{}/{}/'.format(self.working_dir, self.platform_cfg)
         user_recipe_path = '{}/'.format(self.get_conf('Recipes', 'user').rstrip('/'))
@@ -513,8 +566,12 @@ class Flashtool():
 
         return ret_val
 
-
     def __cfg_platform(self, args):
+        '''
+        Loads the recipe files from git server via cfgserver module.
+        :param args: Parsed arguments from argparse
+        :return: None
+        '''
         cfg = cfgserver.ConfigServer(self.get_conf('Recipes', 'server'), self.working_dir, self.platform_cfg)
 
         method = {
@@ -527,8 +584,13 @@ class Flashtool():
 
         method[action]()
 
-
     def __get_args(self, args, get):
+        '''
+        Extract arguments from the argparse.Namespace object.
+        :param args: argparse.Namespace object
+        :param get: list with keys for the argparse.Namespace object
+        :return: Dictionary with selected arguments.
+        '''
         retVal = OrderedDict(
             map(lambda m: (m, getattr(args, m)),
                 filter(lambda a: not a.startswith('__')
@@ -545,6 +607,11 @@ class Flashtool():
 
 
     def __fs_check(self,args):
+        '''
+        Routine to check the filesystem of the partitions of a device.
+        :param args: Not needed, but required from argparse API
+        :return:
+        '''
         device, partitions = udev.get_device(True)
 
         for partition in partitions:
@@ -566,9 +633,15 @@ class Flashtool():
 
 
 def main():
+    '''
+    entry point
+    :return:
+    '''
     # Init colorama
     init(autoreset=True)
     tool = Flashtool()
+
+    from flashtool.setup.recipe import RecipeContentException
 
     try:
         tool.parse()
@@ -580,5 +653,16 @@ def main():
     except BuildserverConnectionError as e:
         print(Fore.RED + '{}'.format(e.message))
         print(Fore.YELLOW + 'Please check your network connection!')
+    except RecipeContentException as e:
+        print(Fore.RED + '{}'.format(e.message))
+        print(Fore.YELLOW + 'Please check the recipe file.\nYou might consider reading '
+                            '\nhttps://embedux.github.io/documentation/usage/flashtool/index.html#recipe-files\n'
+                            'or update your recipe file with \'flashtool platform_recipes update\' if you have '
+                            'an old version of the recipe files.')
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        with open('{}/uncaught_exceptions'.format(tool.working_dir), 'a') as file:
+            file.write(tb)
 
 

@@ -134,12 +134,25 @@ def set_root_password(path_to_rootfs):
     if not os.path.exists(path):
         raise FileNotFoundError('Could not find {}'.format(path))
 
-    print('')
-    print('Please set a root password for the system or press enter for default password [default \'toor\']:')
-    pw = getpass.getpass()
+    pw = 'toor'
+    pw_check = ''
 
-    if pw == '':
-        pw = 'toor'
+    while True:
+        print('')
+        print('Please set a root password for the system or press enter for default password [default \'toor\']:')
+        pw = getpass.getpass()
+
+        if pw == '':
+            pw = 'toor'
+            break
+        else:
+            print('Please repeat the password')
+            pw_check = getpass.getpass()
+
+            if pw == pw_check:
+                break
+            else:
+                print('Password was not the same.')
 
     subprocess.call(['sed', '-i', '1d', path])
 
