@@ -4,9 +4,9 @@ import yaml
 
 from flashtool.setup.recipe import RecipeImportException
 from flashtool.setup.recipe import RecipeContentException
-from flashtool.setup.setupfactory import *
+from flashtool.setup.recipe import load_recipes
+from flashtool.setup.deploy import get_setup_step
 from flashtool.server.buildserver import Buildserver, LocalBuilds
-
 
 class Setup():
     '''
@@ -21,31 +21,13 @@ class Setup():
             # buildserver
             self.builds = Buildserver(url['server'], url['port'], platform, user_dest)
 
-        stream = open(recipe_file, 'r')
-        documents = yaml.safe_load_all(stream)
-        doc_pos = 0
-
         self.__setup_chain = []
+        recipes = load_recipes(recipe_file)
 
-        for doc in documents:
-            recipe_type = doc.get('type')
-            recipe_content = doc.get('recipe')
+        for recipe in recipes:
+            setup_class = get_setup_step(recipe.__class__.__name__)
 
-            if not recipe_type:
-                raise RecipeContentException(
-                    '{}.document({}): does not define attribute type.'.format(recipe_file, doc_pos))
-            if not recipe_content:
-                raise RecipeContentException(
-                    '{}.document({}): does not define attribute recipe.'.format(recipe_file, doc_pos))
-
-            recipe_class = _import_recipe_class(recipe_type)
-            recipe_obj = recipe_class(recipe_content)
-
-            cls = get_setup_step(recipe_type)
-
-            self.__setup_chain.append(cls(recipe_obj, actions, self.builds, platform, auto))
-
-            doc_pos += 1
+            self.__setup_chain.append(setup_class(recipe, actions, self.builds, platform, auto))
 
 
     def setup(self):
@@ -54,30 +36,3 @@ class Setup():
 
         for obj in self.__setup_chain:
             obj.load()
-
-def _import_recipe_class(name):
-    """import setup recipe class """
-    from flashtool.setup.recipe import YAML
-    import importlib
-
-    path = "flashtool.setup.recipe."
-
-    python_name = name.lower()
-
-    if path[-1] != '.':
-        path += '.'
-
-    try:
-        imp = importlib.import_module(path + python_name)
-        recipe_class = imp.__entry__
-        if issubclass(recipe_class, YAML):
-            return recipe_class
-        else:
-            raise RecipeImportException('Recipe class "{}" must inherit from class "recipe"!'.format(recipe_class))
-    except AttributeError as e:
-        raise RecipeImportException('Recipe module "{}" must define the attribute __entry__'.format(path + python_name))
-    except ImportError as e:
-        raise RecipeImportException('Recipe module "{}" could not be found!'.format(path + python_name))
-    except TypeError as e:
-        raise RecipeImportException('Value of "{}.__entry__" must be a class!'.format(path + python_name))
-

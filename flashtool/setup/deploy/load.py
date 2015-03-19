@@ -85,7 +85,6 @@ def merge_load_recipe_with_user_input(load_recipe, user_actions):
     yaml_info = {}
     # extract information for loading products to platform
     for product_name, values in load_recipe:
-
         prod = product_name.lower().split('_')
         product = prod[0]
 

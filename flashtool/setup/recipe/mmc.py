@@ -9,8 +9,6 @@ from flashtool.setup.constants import mkfs_support
 import _ped
 import re
 
-
-
 class MMC(YAML):
     attr = ['partitions', 'partition_table', 'load']
 
@@ -34,37 +32,41 @@ class MMC(YAML):
 
         attributes['partitions'] = parts
         attributes['load'] = Load(attributes['load'])
-        self.check_attributes(attributes)
-        self.__check_partition_table(attributes['partition_table'])
+        self.check_attributes(attributes, False)
+        MMC.check_partition_table(attributes['partition_table'])
         YAML.__init__(self, attributes)
 
 
-    def __check_partition_table(self, part_table):
+    @staticmethod
+    def check_partition_table(part_table):
         try:
             _ped.disk_type_get(part_table)
         except _ped.UnknownTypeException:
             raise RecipeContentException('Partition table {} stated in document is not supported!'.format(part_table))
 
-
 class Partition(YAML):
     attr = ['name', 'size', 'fs_type', 'mount_point', 'mount_opts', 'flags']
 
     def __init__(self, attributes):
-        self.check_attributes(attributes)
+        self.check_attributes(attributes, False)
+
         if attributes['size'] != 'max':
-            attributes['size'] = self.__to_byte(attributes['size'])
+            attributes['size'] = Partition.to_byte(attributes['size'])
         attributes['name'] = attributes['name'].upper().strip()
 
         if attributes['name'] == '':
             raise RecipeContentException('Partition must contain a name.')
 
+        if attributes['flags']:
+            attributes['flags'] = attributes['flags'].replace(' ', '').split(',')
+
         YAML.__init__(self, attributes)
 
-        self.__check_fs_type(self.fs_type)
-        self.__check_partition_flag(self.flags)
+        Partition.check_fs_type(self.fs_type)
+        Partition.check_partition_flag(self.flags, self.name)
 
-
-    def __check_fs_type(self, fs_type):
+    @staticmethod
+    def check_fs_type(fs_type):
         try:
             if not util.shutil_which(mkfs_support[fs_type][0]):
                 raise RecipeContentException(
@@ -73,24 +75,25 @@ class Partition(YAML):
             raise RecipeContentException(
                     'Filesystem type {0} is not supported.'.format(fs_type))
 
-    def __check_partition_flag(self, flags):
+    @staticmethod
+    def check_partition_flag(flags, name = ''):
         if flags:
             if isinstance(flags, list):
                 for flag in flags:
                     if _ped.partition_flag_get_by_name(flag) == 0:
-                        raise RecipeContentException('Flag {} for partition {} is not valid.'.format(flag, self.name))
+                        raise RecipeContentException('Flag {} for partition {} is not valid.'.format(flag, name))
             else:
                 if _ped.partition_flag_get_by_name(flags) == 0:
-                    raise RecipeContentException('Flag {} for partition {} is not valid.'.format(flags, self.name))
+                    raise RecipeContentException('Flag {} for partition {} is not valid.'.format(flags, name))
 
-
-    def __to_byte(self, string):
-        types = {re.compile('[0-9]+%$'): 0.01,
-                 re.compile('[0-9]+$'): 1,
-                 re.compile('[0-9]+(kb|kB|KB|Kb)$'): 1024,
-                 re.compile('[0-9]+(mb|mB|MB|Mb)$'): 1024 * 1024,
-                 re.compile('[0-9]+(gb|gB|GB|Gb)$'): 1024 * 1024 * 1024,
-                 re.compile('[0-9]+(tb|tB|TB|Tb)$'): 1024 * 1024 * 1024 * 1024
+    @staticmethod
+    def to_byte(string):
+        types = {
+            re.compile('[0-9]+$'): 1,
+            re.compile('[0-9]+( )*(kb|kB|KB|Kb)$'): 1024,
+            re.compile('[0-9]+( )*(mb|mB|MB|Mb)$'): 1024 * 1024,
+            re.compile('[0-9]+( )*(gb|gB|GB|Gb)$'): 1024 * 1024 * 1024,
+            re.compile('[0-9]+( )*(tb|tB|TB|Tb)$'): 1024 * 1024 * 1024 * 1024
         }
 
         value = 0

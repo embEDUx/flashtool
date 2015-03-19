@@ -4,6 +4,7 @@ LINUX_PARTITION = 131
 
 mkfs_support = {
     'fat32': ['mkfs.fat', '-F32', '-n'],
+    'vfat': ['mkfs.fat', '-F32', '-n'],
     'ext4': ['mkfs.ext4', '-F', '-L'],
     'ext3': ['mkfs.ext3', '-F', '-L'],
     'ext2': ['mkfs.ext2', '-F', '-L'],
@@ -12,6 +13,7 @@ mkfs_support = {
 
 mkfs_check = {
     'vfat':  ['mkfs.vfat', '-v'],
+    'fat32':  ['mkfs.vfat', '-v'],
     'btrfs': ['btrfs', 'check'],
     'ext4':  ['mkfs.ext4', '-v'],
     'ext3':  ['mkfs.ext3', '-v'],
