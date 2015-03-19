@@ -8,3 +8,5 @@ class recipe_mock_sub(YAML):
     def __init__(self, attributes):
         self.check_attributes(attributes)
         YAML.__init__(self, attributes)
+
+__entry__ = recipe_mock_sub

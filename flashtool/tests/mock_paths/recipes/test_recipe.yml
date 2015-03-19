@@ -1,1 +1,13 @@
 ---
+type: recipe_mock
+
+recipe:
+   key1: value1
+   key2: value2
+   key3: a, b, c
+
+---
+type: recipe_mock_sub
+
+recipe:
+    key1: value1
