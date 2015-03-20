@@ -22,7 +22,6 @@ from flashtool.server.buildserver import Buildserver, BuildserverConnectionError
 import flashtool.setup.udev.mmc as udev
 from flashtool.setup.constants import mkfs_check
 
-__version__ = '1.0.0'
 __author__ = 'mahieke'
 
 
