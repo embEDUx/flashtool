@@ -19,7 +19,7 @@ class BlockDevSectorsTestError(Exception):
     def __str__(self):
         return repr(self.message)
 
-def _partition(dev, partition_table, partitions):
+def partition(dev, partition_table, partitions):
     '''
     Creates all partitions on a device which are defined in the recipe object
     :param dev: /dev path of the mmc device
@@ -32,7 +32,7 @@ def _partition(dev, partition_table, partitions):
 
     print(Fore.YELLOW + '   Delete partitions from {}.'.format(dev))
 
-    print(Fore.YELLOW + '   Set partition table to "{}"'.format(partition_table))
+    print(Fore.YELLOW + '   Set devlayout table to "{}"'.format(partition_table))
 
     name_feature_avail = _disk.getPedDisk().type.check_feature(_ped.DISK_TYPE_PARTITION_NAME)
 
@@ -77,7 +77,7 @@ def _partition(dev, partition_table, partitions):
     return new_partitions
 
 
-def _check_disk(device):
+def check_disk(device):
     '''
     Does a check on the firs 1MB of the mmc device. This check must pass to make
     sure that the first 1MB of the device are valid.
@@ -137,7 +137,7 @@ def _check_disk(device):
 def _get_free_regions(disk, align):
     """
     Source: https://gist.github.com/kergoth/4388948
-    Get a filtered list of free regions, excluding the gaps due to partition alignment
+    Get a filtered list of free regions, excluding the gaps due to devlayout alignment
     :param disk: parted disk object
     :param align: parted align object
 
@@ -157,10 +157,10 @@ def _add_partition(disk, free, align=None, length=None, fs_type=None, type=parte
     :param disk: parted disk object
     :param free: list with parted geometry object which represent free coherent sectors
     :param align: parted alignment object
-    :param length: length in sectors for the partition
+    :param length: length in sectors for the devlayout
     :param fs_type: file system type
-    :param type: parted partition type
-    :return: parted partition object for the created partition
+    :param type: parted devlayout type
+    :return: parted devlayout object for the created devlayout
     """
     start = free.start
     if length:
@@ -193,9 +193,9 @@ def _add_partition(disk, free, align=None, length=None, fs_type=None, type=parte
     return partition
 
 
-def _format(partitions):
+def format(partitions):
     '''
-    Formats the new crated partition with the filesystem type which is specified in the recipe.
+    Formats the new crated devlayout with the filesystem type which is specified in the recipe.
     :return: None
     '''
     for part_info in partitions:

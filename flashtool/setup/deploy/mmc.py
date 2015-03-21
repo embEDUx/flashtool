@@ -1,6 +1,5 @@
 from __future__ import unicode_literals
 from __future__ import print_function
-from flashtool.setup.partition.blockdev import _partition, _check_disk, _format
 
 __author__ = 'mahieke'
 
@@ -12,6 +11,9 @@ from flashtool.setup.deploy.load import set_root_password
 from flashtool.setup.deploy.templateloader import fstab_info
 from flashtool.setup.deploy.templateloader import generate_fstab
 from flashtool.setup.deploy.templateloader import get_fstab_fstype
+from flashtool.setup.devlayout.blockdev import partition
+from flashtool.setup.devlayout.blockdev import check_disk
+from flashtool.setup.devlayout.blockdev import format
 
 import re
 from colorama import Fore
@@ -114,9 +116,9 @@ class MMCDeploy(Deploy):
             print(Fore.RED + 'ABORT!')
             exit(0)
 
-        _check_disk(device[0]['path'])
+        check_disk(device[0]['path'])
 
-        new_partitions = _partition(device[0]['path'], self.recipe['partition_table'], self.recipe['partitions'])
+        new_partitions = partition(device[0]['path'], self.recipe['partition_table'], self.recipe['partitions'])
 
         partitions = parted.newDisk(parted.getDevice(device[0]['path'])).partitions
 
@@ -124,7 +126,7 @@ class MMCDeploy(Deploy):
             new_partitions[index]['path'] = partitions[index].path
 
         print(Fore.YELLOW + '   Format partitions {}:'.format(', '.join([p['path'] for p in new_partitions])))
-        _format(new_partitions)
+        format(new_partitions)
 
         self.__partition_info = device[0]['path'], get_load_info([part.path for part in partitions])
 

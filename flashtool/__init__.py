@@ -37,6 +37,8 @@ def get_loglvl(verbosity, minimum=3):
     else:
         return VERBOSITY_LOGLEVEL[verbosity]
 
+__version__ = '0.1.0'
+
 
 class Flashtool():
     """
