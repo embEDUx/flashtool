@@ -3,11 +3,11 @@ __author__ = 'mahieke'
 from flashtool.setup.recipe import YAML
 from flashtool.setup.recipe import Load
 from flashtool.setup.recipe import RecipeContentException
-import flashtool.utility as util
 from flashtool.setup.constants import mkfs_support
 
 import _ped
 import re
+import shutil
 
 class MMC(YAML):
     attr = ['partitions', 'partition_table', 'load']
@@ -68,7 +68,7 @@ class Partition(YAML):
     @staticmethod
     def check_fs_type(fs_type):
         try:
-            if not util.shutil_which(mkfs_support[fs_type][0]):
+            if not shutil.which(mkfs_support[fs_type][0]):
                 raise RecipeContentException(
                     'Filesystem type {0} is not supported on your system. (mkfs.{0} needed)'.format(fs_type))
         except KeyError:

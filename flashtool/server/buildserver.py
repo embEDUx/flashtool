@@ -493,7 +493,7 @@ class Buildserver():
             retVal[1]['last_build'] = json_data['number']
             return retVal
 
-    def __get_json_data(self, what, opts=[]):
+    def __get_json_data(self, what, opts=None):
         '''
         Tries to get json data from :attribute url:/:param what: via request call.
         (read json api buildbot for further information)
@@ -502,6 +502,8 @@ class Buildserver():
         :param opts: list with buildbot options as string (pattern ["{option1}={value}",...])
         :return: Json data as dictionary
         '''
+        if not opts:
+            opts = []
         r = self.__try_request('get', '{}/{}/?{}'.format(self.url, what, '&'.join(opts)).rstrip('?'))
 
         if r.status_code != 200:

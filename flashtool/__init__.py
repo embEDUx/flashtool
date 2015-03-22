@@ -8,6 +8,7 @@ from os.path import expanduser
 import re
 from collections import OrderedDict
 from datetime import datetime
+import shutil
 
 from colorama import init
 from colorama import Fore
@@ -621,7 +622,7 @@ class Flashtool():
         :param args: Not needed, but required from argparse API
         :return:
         '''
-        device, partitions = udev.get_device(True)
+        device, partitions = udev.get_mmc_device(True)
 
         for partition in partitions:
             fs_type = partition['fs_type']
@@ -630,7 +631,7 @@ class Flashtool():
             print('')
             try:
                 cmd = mkfs_check[fs_type] + [path]
-                if not util.shutil_which(cmd[0]):
+                if not shutil.which(cmd[0]):
                     print(Fore.YELLOW + 'Could not do filesystem check on partition {}. Filesystem format \'{}\' '
                                         'is not supported on your system.'.format(fs_type, path))
                     print('')

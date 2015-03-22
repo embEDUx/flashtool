@@ -52,43 +52,11 @@ class MMCDeploy(Deploy):
         self.platform = platform
         self.builds = builds
         self.auto = auto
-        self.__udev = udev.get_device()
+        self.__udev = udev.get_mmc_device()
         self.__partition_info = None
         self.__mounted_devs = {}
 
         self.load_cfg = get_products_by_recipe_user_input(recipe.load, actions, builds, platform, auto)
-
-        sizes = [1024*1024]
-        for entry in self.recipe['partitions']:
-            if entry.size != 'max':
-                sizes.append(int(entry.size))
-            else:
-                sizes.append(int(self.__udev[0]['size']) - sum(sizes))
-
-        # do file size check
-        for product, values in self.load_cfg.items():
-            for item in values:
-                if item['yaml'].device is not None:
-                    sizes[item['yaml'].device + 1] -= item['size']
-                elif item['yaml'].command is not None:
-                    t_str = item['yaml'].command[1]
-                    num = t_str.split('device')[1][0]
-                    if isinstance(num, int):
-                        sizes[int(num) + 1] -= item['size']
-                    else:
-                        sizes[0] -= item['size']
-
-        not_enough_space = False
-        i = 0
-        for size in sizes:
-            if size < 0:
-                not_enough_space = True
-                print(Fore.RED + 'There is not enough space on partition {}'.format(i))
-            i += 1
-
-        if not_enough_space:
-            raise MMCNotEnoughSpaceError()
-            exit(0)
 
     def prepare(self):
         '''
@@ -326,6 +294,6 @@ def get_load_info(partitions):
     :return: list with important information about partitions
     '''
     parts = [part.strip('/dev/') for part in partitions]
-    return udev.get_information(parts)
+    return udev.get_partition_information(parts)
 
 __entry__ = MMCDeploy

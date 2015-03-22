@@ -22,6 +22,9 @@ def get_info(dev, indent=0):
 
 def get_active_mmc_info():
     '''
+    Tries to get information about a plugged in mmc device. The user
+    receives instructions to plug in the mmc device when the tool is ready
+    for recognition.
 
     :return: Information for Block devices
     '''
@@ -44,7 +47,12 @@ def get_active_mmc_info():
 
     print('Searching for Flash Card. Please insert Flash Card...')
 
-    guessed_devices = guess_devices()
+    while True:
+        guessed_devices = MMCProfiler().guess()
+        guessed_devices = _get_real_block_devices(guessed_devices)
+
+        if guessed_devices:
+            break
 
     log.debug('GET ALL PARTITIONS OF DEVICES {}'.format(', '.join(guessed_devices)))
 
@@ -60,8 +68,14 @@ def get_active_mmc_info():
 
     return info
 
-
 def _get_real_block_devices(guessed_devices):
+    '''
+    Filters entries in the list with possible block devices
+    when they are not a block device.
+
+    :param guessed_devices: list of possible block devices
+    :return: list with valid block devices
+    '''
     real_block_device = []
     for dev in guessed_devices:
         if util.get_size_block_dev(dev) != 0:
@@ -70,18 +84,22 @@ def _get_real_block_devices(guessed_devices):
 
     return real_block_device
 
+def get_partition_information(devices):
+    '''
+    Retrieves important information about the partitions of
+    a block device.
 
-def guess_devices():
-    while True:
-        guessed_devices = MMCProfiler().guess()
-        guessed_devices = _get_real_block_devices(guessed_devices)
+    Information:
+        path: path to /dev device of the partition
+        size: size of the partition
+        fs_type: filesystem type of a partition
+        fs_version: filesystem version
+        name: partition label
+        uuid: uuid of the partition
 
-        if guessed_devices:
-            break
-
-    return guessed_devices
-
-def get_information(devices):
+    :param devices: list of block devices
+    :return: List with information for a device
+    '''
     info = []
 
     for dev in devices:
@@ -97,13 +115,15 @@ def get_information(devices):
 
     return info
 
-def get_device(auto=False):
+def get_mmc_device(auto=False):
     '''
-    Static method which tries to get the device information of a mmc device.
+    Function which tries to get the device information of a mmc device.
     If the system recognize multiple mmc devices the user is prompted to chose
     a device.
+
+    :param auto: decide if user should be asked for continuing the setup process
     :return: Returns a triple with device dev-path, size of device and list with
-             all dev-path of the partitions
+             all dev-paths of the partitions
     '''
     memory_cards_info = get_active_mmc_info()
 
@@ -144,8 +164,15 @@ def get_device(auto=False):
 
     return devices[selection]
 
-
 def ensure_unmounted(devs):
+    '''
+    Unmount the partitions which are given by in parameter devs.
+    The function will call the umount command as often as the device
+    is listed in /proc/mounts.
+
+    :param devs: list with /dev paths of partitions
+    :return: None
+    '''
     for path in devs:
         for line in open("/proc/mounts"):
             if path in line:
@@ -155,6 +182,9 @@ def ensure_unmounted(devs):
 
 class MMCProfiler(object):
     def __init__(self):
+        '''
+        Class which is able to guess the right *mmc* device when plugged in.
+        '''
         context = Context()
         monitor_mmc = Monitor.from_netlink(context)
         monitor_mmc.filter_by(subsystem='block', device_type='disk')
@@ -174,11 +204,16 @@ class MMCProfiler(object):
 
     def __count(self, action, device):
         if device.sys_name in self.__cnt[action]:
-            self.__cnt[action][device.sys_name] = self.__cnt[action][device.sys_name] + 1
+            self.__cnt[action][device.sys_name] += 1
         else:
             self.__cnt[action][device.sys_name] = 1
 
     def guess(self):
+        '''
+        Method which guesses the mmc device due to the recorded udev events.
+
+        :return: a list with all possible mmc devices
+        '''
         devname = list()
 
         log.debug('STATISTIC OF CHANGE AND ADD EVENTS: {}'.format(self.__cnt))

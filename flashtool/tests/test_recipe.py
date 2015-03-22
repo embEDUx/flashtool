@@ -1,15 +1,14 @@
 __author__ = 'mahieke'
 
 import sys
-
 import pytest
-
 
 sys.path.extend('..')
 
-from flashtool.setup.recipe import RecipeContentException
+from flashtool.setup.recipe import RecipeContentException, load_recipes
 from flashtool.tests.mock_paths.python.recipe.recipe_mock import recipe_mock
 from flashtool.tests.mock_paths.python.recipe.recipe_mock_sub import recipe_mock_sub
+
 
 
 def test_yaml_valid():
@@ -76,7 +75,10 @@ def test_load_recipe_from_yaml():
         'key3' : 'a, b, c',
     }
 
-    recipes = load_recipes('flashtool/tests/mock_paths/recipes/test_recipe.yml', 'flashtool.tests.mock_paths.python.recipe')
+    import os
+    recipe_file = os.path.abspath('flashtool/tests/mock_paths/recipes/test_recipe.yml')
+
+    recipes = load_recipes(recipe_file, 'flashtool.tests.mock_paths.python.recipe')
 
     for recipe in recipes:
         if isinstance(recipe, recipe_mock):

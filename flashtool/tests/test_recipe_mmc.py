@@ -89,7 +89,7 @@ def test_partition_missing_attributes():
         part = Partition(part_values)
 
 
-def test_recipe_mmc_with_yaml_file():
+def test_recipe_mmc():
     input_dict = {
         'partition_table': 'msdos',
         'partitions': [
